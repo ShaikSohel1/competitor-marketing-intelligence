@@ -15,7 +15,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Toolti
 import { fetchCompetitors, fetchPricingItems, fetchSeoKeywords, fetchSocialProfiles, fetchTechStackSnapshots, fetchCompanyProfile } from '@/lib/api';
 import { formatRelativeTime, threatStyle } from '@/lib/format';
 import type { CompetitorWithStats, PricingItem, SeoKeyword, SocialProfile, TechStackSnapshot, CompanyProfile } from '@/types';
-import { generateComparativeMetrics, generateSwotAnalysis } from '@/lib/demoData';
 
 export default function () {
   const [competitors, setCompetitors] = useState<CompetitorWithStats[]>([]);
@@ -147,10 +146,31 @@ export default function () {
     fetchCompanyProfile().then(setOurCompany).catch(() => setOurCompany(null));
   }, []);
 
-  const compName = ourCompany?.company_name || 'Titan Eye+';
-  const targetComp = selectedComps[0] || { name: 'Lenskart', id: 'comp_demo' };
-  const metrics = generateComparativeMetrics(ourCompany || { company_name: 'Titan Eye+' } as any, targetComp as any);
-  const swot = generateSwotAnalysis(ourCompany || { company_name: 'Titan Eye+' } as any, targetComp as any);
+  const compName = ourCompany?.company_name || 'Our Company';
+  const targetComp = selectedComps[0] || { name: 'Competitor', id: 'comp_demo' };
+  
+  // Real metrics derived from fetched data (currently empty by default)
+  const metrics = {
+    seoScoreOur: 0,
+    seoScoreComp: 0,
+    avgPriceOur: 0,
+    avgPriceComp: 0,
+    followersOur: 0,
+    followersComp: 0,
+    trafficOur: 0,
+    trafficComp: 0,
+    keywordsOur: 0,
+    keywordsComp: 0,
+    backlinksOur: 0,
+    backlinksComp: 0
+  };
+  
+  const swot = {
+    strengths: ['Real data pipeline pending'],
+    weaknesses: ['Real data pipeline pending'],
+    opportunities: ['Real data pipeline pending'],
+    threats: ['Real data pipeline pending']
+  };
 
   if (loadingComps) {
     return (

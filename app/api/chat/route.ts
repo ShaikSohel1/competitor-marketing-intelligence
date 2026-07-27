@@ -1,16 +1,17 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { createClient } from '@supabase/supabase-js';
 import { getUserId } from '@/lib/workspace';
 
 async function geminiGenerate(prompt: string): Promise<string | null> {
-  const key = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+  const key = process.env.NEXT_GEMINI_API_KEY;
   if (!key) {
-    console.info('[AI Service] chat Gemini skipped, GEMINI_API_KEY not configured');
+    console.info('[AI Service] chat Gemini skipped, NEXT_GEMINI_API_KEY not configured');
     return null;
   }
   try {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -21,7 +22,8 @@ async function geminiGenerate(prompt: string): Promise<string | null> {
       },
     );
     if (!res.ok) {
-      console.error('[AI Service] chat geminiGenerate response error', { status: res.status });
+      const errText = await res.text();
+      console.error('[AI Service] chat geminiGenerate response error', { status: res.status, text: errText });
       return null;
     }
     const data = await res.json();
@@ -48,6 +50,19 @@ export async function POST(request: Request) {
     }
     const userId = authData.user.id;
 
+    // Create a Supabase client that uses the user's token so RLS policies pass
+    const authSupabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      }
+    );
+
     const body = await request.json();
     const question: string = body.question;
     const competitorId: string | undefined = body.competitorId;
@@ -60,9 +75,9 @@ export async function POST(request: Request) {
 
     // 3. Fetch Our Company Profile and Competitors Data for full comparative context
     const [{ data: ourCompanyData }, { data: competitorsData }] = await Promise.all([
-      supabase.from("company_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      authSupabase.from("company_profiles").select("*").eq("user_id", userId).maybeSingle(),
       (() => {
-        let q = supabase.from("competitors").select("name, website, industry, description").eq("user_id", userId);
+        let q = authSupabase.from("competitors").select("name, website, industry, description").eq("user_id", userId);
         if (competitorId) q = q.eq("id", competitorId);
         return q;
       })(),
@@ -98,7 +113,7 @@ ${question}`;
 
     // 4. Persist chat message records to chat_messages with user_id and user_id
     try {
-      await supabase.from("chat_messages").insert([
+      await authSupabase.from("chat_messages").insert([
         {
           user_id: userId,
           competitor_id: competitorId ?? null,

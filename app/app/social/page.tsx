@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { useCompetitorList } from '@/hooks/useCompetitorList';
 import { fetchSocialPosts, fetchSocialProfiles, fetchCompanyProfile, scanCompetitor } from '@/lib/api';
-import { generateDefaultCompanyProfile } from '@/lib/demoData';
+
 import { CompetitorFilter } from '@/components/CompetitorFilter';
 import { PageHeader } from '@/components/PageHeader';
 import { EmptyState } from '@/components/EmptyState';
@@ -128,7 +128,7 @@ export default function SocialMediaIntelligencePage() {
   const competitorMap: Record<string, Competitor> = {};
   for (const c of competitors) competitorMap[c.id] = c;
 
-  const defaultOurCompany: CompanyProfile = ourCompany || generateDefaultCompanyProfile('');
+  const defaultOurCompany: CompanyProfile = ourCompany || ({ company_name: 'Our Company' } as CompanyProfile);
 
   // Follower Comparison Chart Data (Our Company vs Competitors)
   const followerChartData = useMemo(() => {

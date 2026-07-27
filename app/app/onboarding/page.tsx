@@ -23,7 +23,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { saveCompanyProfile } from '@/lib/api';
-import { DEMO_COMPANY_PRESETS } from '@/lib/demoData';
+
 import { useToast } from '@/hooks/use-toast';
 import { normalizeUrl } from '@/lib/format';
 
@@ -49,30 +49,6 @@ export default function CompanyOnboardingPage() {
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-
-  function loadPresetTemplate(presetKey: string) {
-    const preset = DEMO_COMPANY_PRESETS[presetKey];
-    if (!preset) return;
-    setCompanyName(preset.company_name);
-    setWebsite(preset.website.replace(/^https?:\/\//, ''));
-    setIndustry(preset.industry || '');
-    setDescription(preset.description || '');
-    setLogoUrl(preset.logo_url || '');
-    setHeadquarters(preset.headquarters || '');
-    setEmployeeCount(preset.employee_count || 1000);
-    setFoundedYear(preset.founded_year || 2010);
-    setAnnualRevenue(preset.annual_revenue || '₹500 Cr');
-    setPrimaryProducts((preset.primary_products || []).join(', '));
-    setTargetMarket(preset.target_market || '');
-    setBrandKeywords((preset.brand_keywords || []).join(', '));
-    setBrandColor(preset.brand_color || '#0F52BA');
-    if (preset.social_links) {
-      setLinkedin(preset.social_links.linkedin || '');
-      setInstagram(preset.social_links.instagram || '');
-      setTwitter(preset.social_links.twitter || '');
-    }
-    toast({ title: `${presetKey} Preset Loaded`, description: 'Company details filled automatically.' });
-  }
 
   async function handleFinish(e: React.FormEvent) {
     e.preventDefault();
@@ -132,27 +108,6 @@ export default function CompanyOnboardingPage() {
           <CardDescription>
             Radar compares <strong>OUR COMPANY</strong> against all competitors. Set up your company profile.
           </CardDescription>
-
-          {/* Quick Pick Presets */}
-          <div className="mt-4 pt-3 border-t">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-              ⚡ Quick Load Demo Company Preset
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {Object.keys(DEMO_COMPANY_PRESETS).map((key) => (
-                <Button
-                  key={key}
-                  type="button"
-                  variant={companyName === key ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs h-7"
-                  onClick={() => loadPresetTemplate(key)}
-                >
-                  <Sparkles className="mr-1 h-3 w-3 text-accent" /> {key}
-                </Button>
-              ))}
-            </div>
-          </div>
 
           {/* Wizard Step Progress */}
           <div className="flex items-center justify-center gap-3 mt-6">

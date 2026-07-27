@@ -21,7 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { formatCurrency, formatDate } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import type { PricingSnapshot, Competitor, PricingItem, CompanyProfile } from '@/types';
-import { generateDefaultCompanyProfile } from '@/lib/demoData';
+
 
 export default function PricingIntelligencePage() {
   const { competitors, loading: compsLoading } = useCompetitorList();
@@ -76,7 +76,7 @@ export default function PricingIntelligencePage() {
   const competitorMap: Record<string, Competitor> = {};
   for (const c of competitors) competitorMap[c.id] = c;
 
-  const defaultOurCompany: CompanyProfile = ourCompany || generateDefaultCompanyProfile('');
+  const defaultOurCompany: CompanyProfile = ourCompany || ({ company_name: 'Our Company' } as CompanyProfile);
 
   // 1. Table Rows Construction (Our Company vs Competitors)
   const tableRows: PricingTableRow[] = useMemo(() => {

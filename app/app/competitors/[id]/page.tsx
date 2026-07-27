@@ -100,7 +100,6 @@ import {
   compareTimeline,
   getExecutiveAnalysis,
 } from '@/lib/comparison';
-import { generateSwotAnalysis } from '@/lib/demoData';
 
 export default function CompetitorDetailPage() {
   const params = useParams();
@@ -226,7 +225,12 @@ export default function CompetitorDetailPage() {
   const techComp = compareTechnology(ourComp, c);
   const timelineComp = compareTimeline(ourComp, c, detail.events);
   const execAnalysis = getExecutiveAnalysis(ourComp, c);
-  const swotAnalysis = generateSwotAnalysis(ourComp, c);
+  const swotAnalysis = {
+    strengths: ['Real data pipeline pending'],
+    weaknesses: ['Real data pipeline pending'],
+    opportunities: ['Real data pipeline pending'],
+    threats: ['Real data pipeline pending']
+  };
 
   return (
     <div className="space-y-6">

@@ -28,24 +28,7 @@ import type {
   MonitoredUrl,
 } from '@/types';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase';
-import {
-  generateWebsiteSnapshot,
-  generateSeoKeywords,
-  generateSocialPosts,
-  generateSocialProfiles,
-  generatePricing,
-  generatePricingSnapshots,
-  generateAdCreatives,
-  generateInsights,
-  generateComparativeInsights,
-  generateAlerts,
-  generateChangeEvents,
-  generateDefaultCompanyProfile,
-  generateComparativeMetrics,
-  generateSwotAnalysis,
-  generateComparativeSocialProfiles,
-  generateComparativeSocialPosts,
-} from './demoData';
+// No demo data generation anymore
 
 const authHeaders = (accessToken: string): HeadersInit => ({
   'Content-Type': 'application/json',
@@ -62,7 +45,18 @@ async function getAccessToken(): Promise<string> {
 
 export async function fetchCompanyProfile(): Promise<CompanyProfile> {
   const userId = await getUserId();
-  if (!userId) return generateDefaultCompanyProfile('');
+  
+  const defaultProfile = {
+    id: '00000000-0000-0000-0000-000000000000',
+    user_id: userId || '',
+    company_name: 'Your Company',
+    website: '',
+    industry: 'Software',
+    target_audience: 'B2B',
+    brand_voice: 'Professional',
+  } as unknown as CompanyProfile;
+
+  if (!userId) return defaultProfile;
 
   try {
     const { data, error } = await supabase
@@ -78,7 +72,7 @@ export async function fetchCompanyProfile(): Promise<CompanyProfile> {
     // Graceful fallback when table has not been created yet
   }
 
-  return generateDefaultCompanyProfile(userId);
+  return defaultProfile;
 }
 
 export async function saveCompanyProfile(
@@ -307,65 +301,115 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
 
   const scanId = scan?.id || competitorId;
 
-  // Fetch Our Company Profile context
-  const ourCompany = await fetchCompanyProfile();
+  // 3. Hit the real extract API to generate website snapshot and AI extracted data
+  let html = '';
+  let screenshot = '';
+  let extractedData: any = null;
+  
+  try {
+    const res = await fetch('/api/extract', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: competitor.website, competitorName: competitor.name }),
+    });
+    if (res.ok) {
+      const crawlData = await res.json();
+      html = crawlData.html;
+      screenshot = crawlData.screenshot_url;
+      extractedData = crawlData.extracted_data;
+    } else {
+      console.error("Extract API failed:", await res.text());
+    }
+  } catch (err) {
+    console.error("Failed to extract real data:", err);
+  }
 
-  // 3. Generate structured comparative demo data comparing Our Company vs. Competitor
-  const webSnapshot = { ...generateWebsiteSnapshot(competitor), user_id: userId || '', scan_id: scanId };
-  const seoKwData = generateSeoKeywords(competitor, ourCompany).map((k) => ({...k}));
-  const trackedKwData = seoKwData.map((k) => ({ user_id: userId || '', keyword: k.keyword }));
-  const socialPostData = generateSocialPosts(competitor).map((p) => ({...p}));
-  const socialProfileData = generateSocialProfiles(competitor).map((p) => ({...p}));
-  const pricingItemData = generatePricing(competitor).map((p) => ({...p}));
-  const pricingSnapData = generatePricingSnapshots(competitor).map((p) => ({ ...p, scan_id: scanId }));
-  const adCreativeData = generateAdCreatives(competitor).map((a) => ({...a}));
-  const advertisementData = adCreativeData.map((a) => ({
-    competitor_id: competitorId,
-    user_id: userId || '',
-    platform: a.platform,
-    ad_type: a.format || 'Image',
-    headline: a.headline,
-    creative_url: a.creative_url,
-    landing_url: a.landing_url,
-    budget_estimate: a.metadata?.budget_estimate ? Number(a.metadata.budget_estimate) : 25000,
-    status: a.status,
-    first_seen_at: a.first_seen_at,
-    last_seen_at: a.last_seen_at,
-  }));
-  const alertData = generateAlerts(competitor).map((a) => ({...a}));
-  const changeEventData = generateChangeEvents(competitor).map((c) => ({ ...c, scan_id: scanId }));
-  const aiInsightData = generateComparativeInsights(ourCompany, competitor).map((i) => ({...i}));
-
-  // 4. Batch delete previous records for this competitor to avoid duplicates
+  // 4. Batch delete old records to prevent duplication
   await Promise.allSettled([
     supabase.from('website_snapshots').delete().eq('competitor_id', competitorId),
     supabase.from('seo_keywords').delete().eq('competitor_id', competitorId),
-    supabase.from('social_posts').delete().eq('competitor_id', competitorId),
-    supabase.from('social_profiles').delete().eq('competitor_id', competitorId),
     supabase.from('pricing_items').delete().eq('competitor_id', competitorId),
-    supabase.from('pricing_snapshots').delete().eq('competitor_id', competitorId),
+    supabase.from('social_profiles').delete().eq('competitor_id', competitorId),
     supabase.from('ad_creatives').delete().eq('competitor_id', competitorId),
-    supabase.from('ad_creatives').delete().eq('competitor_id', competitorId),
-    supabase.from('alerts').delete().eq('competitor_id', competitorId),
-    supabase.from('change_events').delete().eq('competitor_id', competitorId),
-    supabase.from('ai_insights').delete().eq('competitor_id', competitorId),
   ]);
 
-  // 5. Batch insert fresh demo data
-  await Promise.all([
-    supabase.from('website_snapshots').insert(webSnapshot),
-    supabase.from('seo_keywords').insert(seoKwData),
-    supabase.from('tracked_keywords').upsert(trackedKwData, { onConflict: 'user_id,keyword', ignoreDuplicates: true }),
-    supabase.from('social_posts').insert(socialPostData),
-    supabase.from('social_profiles').insert(socialProfileData),
-    supabase.from('pricing_items').insert(pricingItemData),
-    supabase.from('pricing_snapshots').insert(pricingSnapData),
-    supabase.from('ad_creatives').insert(adCreativeData),
-    supabase.from('ad_creatives').insert(advertisementData),
-    supabase.from('alerts').insert(alertData),
-    supabase.from('change_events').insert(changeEventData),
-    supabase.from('ai_insights').insert(aiInsightData),
-  ]);
+  // 5. Insert new records
+  const inserts: Promise<any>[] = [];
+
+  if (html || screenshot) {
+    inserts.push(
+      supabase.from('website_snapshots').insert({
+        competitor_id: competitorId,
+        user_id: userId || '',
+        scan_id: scanId,
+        captured_at: now,
+        html_content: html || '',
+        screenshot_url: screenshot || null
+      }) as any
+    );
+  }
+
+  if (extractedData) {
+    if (extractedData.seo_keywords?.length > 0) {
+      const kwData = extractedData.seo_keywords.map((k: any) => ({
+        competitor_id: competitorId,
+        user_id: userId || '',
+        keyword: k.keyword || 'Unknown',
+        search_volume: k.volume || 1000,
+        difficulty: k.difficulty || 50,
+        rank: k.rank || 10,
+      }));
+      inserts.push(supabase.from('seo_keywords').insert(kwData) as any);
+    }
+    
+    if (extractedData.pricing_items?.length > 0) {
+      const pData = extractedData.pricing_items.map((p: any) => ({
+        competitor_id: competitorId,
+        user_id: userId || '',
+        product_name: p.productName || 'Standard',
+        tier: p.tier || 'Basic',
+        price: p.price || 0,
+        currency: p.currency || 'USD',
+        features: Array.isArray(p.features) ? p.features : [],
+        status: 'active',
+        captured_at: now,
+      }));
+      inserts.push(supabase.from('pricing_items').insert(pData) as any);
+    }
+    
+    if (extractedData.social_profiles?.length > 0) {
+      const sData = extractedData.social_profiles.map((s: any) => ({
+        competitor_id: competitorId,
+        user_id: userId || '',
+        platform: s.platform || 'Unknown',
+        profile_url: s.url || '',
+        followers: s.followers || 0,
+      }));
+      inserts.push(supabase.from('social_profiles').insert(sData) as any);
+    }
+    
+    if (extractedData.ad_creatives?.length > 0) {
+      const aData = extractedData.ad_creatives.map((a: any) => ({
+        competitor_id: competitorId,
+        user_id: userId || '',
+        platform: a.platform || 'Google Ads',
+        headline: a.headline || 'Ad',
+        ad_type: a.format || 'Search',
+        status: 'active',
+        first_seen_at: now,
+        last_seen_at: now,
+      }));
+      inserts.push(supabase.from('ad_creatives').insert(aData) as any);
+    }
+    
+    if (extractedData.company_details) {
+      const updateData: any = {};
+      if (extractedData.company_details.industry) updateData.industry = extractedData.company_details.industry;
+      inserts.push(supabase.from('competitors').update(updateData).eq('id', competitorId) as any);
+    }
+  }
+
+  await Promise.allSettled(inserts);
 
   // 6. Update competitor status & timestamp
   await supabase
@@ -376,7 +420,7 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
 
   return {
     scanId,
-    summary: `Scanned ${competitor.name} successfully. Demo intelligence data persisted across all tabs.`,
+    summary: `Scanned ${competitor.name} successfully. Real intelligence data is being tracked.`,
   };
 }
 
@@ -513,17 +557,8 @@ export async function fetchSocialPosts(competitorId?: string, limit = 50): Promi
     }
   }
 
-  // Fallback to comparative demo posts so hackathon demo is never empty
-  const [ourCompany, competitors] = await Promise.all([
-    fetchCompanyProfile(),
-    fetchCompetitors(),
-  ]);
-
-  let generated = generateComparativeSocialPosts(ourCompany, competitors);
-  if (competitorId && competitorId !== 'all') {
-    generated = generated.filter(p => p.competitor_id === competitorId);
-  }
-  return generated;
+  // No mock fallback anymore
+  return [];
 }
 
 /* ----------------------------- Pricing Items ----------------------------- */
@@ -826,17 +861,7 @@ export async function fetchSocialProfiles(competitorId?: string): Promise<Social
     }
   }
 
-  // Fallback to comparative demo profiles
-  const [ourCompany, competitors] = await Promise.all([
-    fetchCompanyProfile(),
-    fetchCompetitors(),
-  ]);
-
-  let generated = generateComparativeSocialProfiles(ourCompany, competitors);
-  if (competitorId && competitorId !== 'all') {
-    generated = generated.filter(p => p.competitor_id === competitorId);
-  }
-  return generated;
+  return [];
 }
 
 /* ----------------------------- Radar v2: Pricing Snapshots ----------------------------- */

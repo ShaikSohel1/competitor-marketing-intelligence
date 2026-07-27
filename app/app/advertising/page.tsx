@@ -33,7 +33,7 @@ import { ChartTooltip } from '@/components/ChartTooltip';
 import { formatCurrency } from '@/lib/format';
 import { useToast } from '@/hooks/use-toast';
 import type { AdCreative, Competitor, TechStackSnapshot, CompanyProfile } from '@/types';
-import { generateDefaultCompanyProfile } from '@/lib/demoData';
+
 
 export default function AdvertisingIntelligencePage() {
   const { competitors, loading: compsLoading } = useCompetitorList();
@@ -88,7 +88,7 @@ export default function AdvertisingIntelligencePage() {
   const competitorMap: Record<string, Competitor> = {};
   for (const c of competitors) competitorMap[c.id] = c;
 
-  const defaultOurCompany: CompanyProfile = ourCompany || generateDefaultCompanyProfile('');
+  const defaultOurCompany: CompanyProfile = ourCompany || ({ company_name: 'Our Company' } as CompanyProfile);
 
   // 1. Detected Ad Networks
   const detectedNetworks: DetectedAdNetwork[] = useMemo(() => {
