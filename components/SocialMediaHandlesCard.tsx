@@ -18,6 +18,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { scanCompetitor } from '@/lib/api';
+import { getUserId } from '@/lib/workspace';
 import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/format';
 import type { SocialProfile } from '@/types';
@@ -68,10 +69,12 @@ export function SocialMediaHandlesCard({
         Object.entries(handles).filter(([_, v]) => v.trim() !== '')
       );
       
+      const userId = await getUserId();
       const { error } = await supabase
         .from('competitors')
         .update({ social_links: cleanedHandles })
-        .eq('id', competitor.id);
+        .eq('id', competitor.id)
+        .eq('user_id', userId);
         
       if (error) throw error;
       

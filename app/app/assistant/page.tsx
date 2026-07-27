@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Bot, Send, Loader2, RefreshCw, ChevronDown, ChevronUp, Database } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bot, Send, Loader2, RefreshCw, ChevronDown, ChevronUp, Database, Sparkles, Volume2 } from 'lucide-react';
 import { useCompetitorList } from '@/hooks/useCompetitorList';
-import { fetchChatMessages, sendChatMessage } from '@/lib/api';
+import { fetchChatMessages, sendChatMessage, scanCompetitor } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { CompetitorFilter } from '@/components/CompetitorFilter';
 import { EmptyState } from '@/components/EmptyState';
@@ -12,10 +13,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { VoiceRecorder } from '@/components/VoiceRecorder';
+import { VoicePlayer } from '@/components/VoicePlayer';
+import { parseVoiceCommand } from '@/lib/voiceCommands';
+import { useToast } from '@/hooks/use-toast';
 import { formatRelativeTime } from '@/lib/format';
 import type { ChatMessage, ChatMessageSource } from '@/types';
 
-export default function () {
+export default function VoiceAiAssistantPage() {
   const { competitors } = useCompetitorList();
   const [selectedCompetitor, setSelectedCompetitor] = useState<string>('all');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -25,6 +30,8 @@ export default function () {
   const [expandedSources, setExpandedSources] = useState<Record<string, boolean>>({});
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  const { toast } = useToast();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,9 +58,7 @@ export default function () {
     scrollToBottom();
   }, [messages, sending]);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const questionText = input.trim();
+  const processQuestion = async (questionText: string) => {
     if (!questionText || sending) return;
 
     setInput('');
@@ -106,6 +111,40 @@ export default function () {
     }
   };
 
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await processQuestion(input.trim());
+  };
+
+  const handleVoiceTranscript = async (transcript: string) => {
+    if (!transcript) return;
+
+    // Check if spoken phrase is a Voice Command
+    const cmd = parseVoiceCommand(transcript, {
+      onScanCompetitors: () => {
+        if (competitors.length > 0) {
+          scanCompetitor(competitors[0].id).then(() => {
+            toast({ title: 'Scan complete', description: 'Competitor data refreshed.' });
+          });
+        }
+      },
+    });
+
+    if (cmd.isCommand) {
+      toast({
+        title: 'Voice Command Recognized',
+        description: cmd.feedbackMessage || 'Executing spoken intent...',
+      });
+      if (cmd.route) {
+        router.push(cmd.route);
+      }
+      return;
+    }
+
+    // Automatically submit to AI Assistant pipeline
+    await processQuestion(transcript);
+  };
+
   const toggleSources = (msgId: string) => {
     setExpandedSources((prev) => ({ ...prev, [msgId]: !prev[msgId] }));
   };
@@ -113,10 +152,13 @@ export default function () {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="AI Assistant"
-        description="Ask questions about your competitors using RAG-powered intelligence retrieval."
+        title="Voice AI Assistant"
+        description="Speak or type naturally to query your competitor portfolio, analyze metrics, and execute voice commands."
         actions={
           <div className="flex items-center gap-3">
+            <Badge variant="outline" className="bg-accent/10 text-accent border-accent/30 py-1.5 px-3 flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" /> ElevenLabs Voice Ready
+            </Badge>
             <CompetitorFilter
               competitors={competitors}
               value={selectedCompetitor}
@@ -129,7 +171,7 @@ export default function () {
         }
       />
 
-      <Card className="flex flex-col h-[calc(100vh-14rem)] min-h-[500px]">
+      <Card className="flex flex-col h-[calc(100vh-14rem)] min-h-[500px] border-accent/20 shadow-lg">
         <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
           {/* Scrollable messages area */}
           <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
@@ -142,10 +184,10 @@ export default function () {
             ) : messages.length === 0 ? (
               <EmptyState
                 icon={Bot}
-                title="Ask CompeteIQ AI"
+                title="Voice AI Marketing Analyst"
                 description={
                   selectedCompetitor === 'all'
-                    ? "Ask anything across your competitor portfolio (e.g., 'Compare pricing tiers' or 'Who is ranking highest for CRM keywords?')"
+                    ? "Click the microphone button to speak or type a question (e.g., 'Compare our pricing with Lenskart' or 'Show SEO')."
                     : "Ask targeted questions about this competitor's activities, SEO ranks, pricing changes, or ads."
                 }
               />
@@ -161,7 +203,7 @@ export default function () {
                     className={`flex items-start gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}
                   >
                     {!isUser && (
-                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent mt-1">
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/15 text-accent mt-1 border border-accent/20 shadow-sm">
                         <Bot className="h-4 w-4" />
                       </div>
                     )}
@@ -212,6 +254,11 @@ export default function () {
                         </div>
                       )}
 
+                      {/* Text-to-Speech audio playback button for AI assistant responses */}
+                      {!isUser && (
+                        <VoicePlayer text={msg.content} />
+                      )}
+
                       <div className={`text-[10px] mt-1 ${isUser ? 'text-primary-foreground/70 text-right' : 'text-muted-foreground'}`}>
                         {formatRelativeTime(msg.created_at)}
                       </div>
@@ -236,20 +283,23 @@ export default function () {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Bottom input section */}
+          {/* Bottom input section with Voice Recorder */}
           <div className="p-3 sm:p-4 border-t bg-card/50">
-            <form onSubmit={handleSend} className="flex gap-2">
+            <form onSubmit={handleSend} className="flex items-center gap-2">
+              <VoiceRecorder onTranscriptReady={handleVoiceTranscript} />
+
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={
                   selectedCompetitor === 'all'
-                    ? 'Ask a question across all competitors...'
-                    : 'Ask a question about this competitor...'
+                    ? "Speak or type your question (e.g. 'Compare pricing with Lenskart')..."
+                    : 'Speak or type your question about this competitor...'
                 }
                 disabled={sending}
                 className="flex-1"
               />
+
               <Button type="submit" disabled={sending || !input.trim()}>
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 <span className="sr-only sm:not-sr-only sm:ml-2">Send</span>
@@ -258,6 +308,9 @@ export default function () {
           </div>
         </CardContent>
       </Card>
+
+      {/* Floating Voice Assistant Trigger Button */}
+      <VoiceRecorder onTranscriptReady={handleVoiceTranscript} variant="floating" />
     </div>
   );
 }

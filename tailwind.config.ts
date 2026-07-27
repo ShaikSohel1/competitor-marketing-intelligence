@@ -72,8 +72,8 @@ const config: Config = {
           foreground: '#64748d',
         },
         accent: {
-          DEFAULT: '#f6f9fc',
-          foreground: '#0d253d',
+          DEFAULT: '#533afd',   // purple
+          foreground: '#ffffff',
         },
         destructive: {
           DEFAULT: '#ea2261',

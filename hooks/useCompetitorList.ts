@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/workspace';
 import type { Competitor } from '@/types';
 
 /**
@@ -15,9 +16,11 @@ export function useCompetitorList() {
     setLoading(true);
     setError(null);
     try {
+      const userId = await getUserId();
       const { data, error } = await supabase
         .from('competitors')
         .select('*')
+        .eq('user_id', userId)
         .order('name', { ascending: true });
       if (error) throw error;
       setCompetitors((data ?? []) as Competitor[]);

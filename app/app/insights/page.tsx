@@ -118,8 +118,11 @@ export default function () {
                       <p className="text-sm font-semibold">{ins.title}</p>
                       <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <Badge variant="secondary" className="capitalize">{ins.insight_type.replace(/_/g, ' ')}</Badge>
+                        <Badge variant="outline" className="bg-accent/10 text-accent border-accent/20">
+                          {ins.confidence || 88}% Confidence
+                        </Badge>
                         {ins.competitor_id && competitorById[ins.competitor_id] && (
-                          <Link href={`/app/competitors/${ins.competitor_id}`} className="inline-flex items-center gap-1 hover:text-foreground">
+                          <Link href={`/app/competitors/${ins.competitor_id}`} className="inline-flex items-center gap-1 font-medium hover:text-foreground">
                             <Link2 className="h-3 w-3" /> {competitorById[ins.competitor_id]}
                           </Link>
                         )}

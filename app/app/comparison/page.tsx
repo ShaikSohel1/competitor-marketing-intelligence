@@ -12,9 +12,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
-import { fetchCompetitors, fetchPricingItems, fetchSeoKeywords, fetchSocialProfiles, fetchTechStackSnapshots } from '@/lib/api';
+import { fetchCompetitors, fetchPricingItems, fetchSeoKeywords, fetchSocialProfiles, fetchTechStackSnapshots, fetchCompanyProfile } from '@/lib/api';
 import { formatRelativeTime, threatStyle } from '@/lib/format';
-import type { CompetitorWithStats, PricingItem, SeoKeyword, SocialProfile, TechStackSnapshot } from '@/types';
+import type { CompetitorWithStats, PricingItem, SeoKeyword, SocialProfile, TechStackSnapshot, CompanyProfile } from '@/types';
+import { generateComparativeMetrics, generateSwotAnalysis } from '@/lib/demoData';
 
 export default function () {
   const [competitors, setCompetitors] = useState<CompetitorWithStats[]>([]);
@@ -140,6 +141,17 @@ export default function () {
 
   const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
 
+  const [ourCompany, setOurCompany] = useState<CompanyProfile | null>(null);
+
+  useEffect(() => {
+    fetchCompanyProfile().then(setOurCompany).catch(() => setOurCompany(null));
+  }, []);
+
+  const compName = ourCompany?.company_name || 'Titan Eye+';
+  const targetComp = selectedComps[0] || { name: 'Lenskart', id: 'comp_demo' };
+  const metrics = generateComparativeMetrics(ourCompany || { company_name: 'Titan Eye+' } as any, targetComp as any);
+  const swot = generateSwotAnalysis(ourCompany || { company_name: 'Titan Eye+' } as any, targetComp as any);
+
   if (loadingComps) {
     return (
       <div className="p-6 space-y-6">
@@ -152,9 +164,114 @@ export default function () {
   return (
     <div className="p-6 max-w-[1600px] mx-auto space-y-6 animate-fade-in">
       <PageHeader
-        title="Competitor Comparison"
-        description="Compare up to 5 competitors across multiple dimensions"
+        title="Head-to-Head Comparison Engine"
+        description={`Comparing ${compName} (Our Company) vs Selected Competitors`}
       />
+
+      {/* PART 10: Visual Head-to-Head Comparison Cards */}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">SEO Score</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-success">{metrics.seoScoreOur}</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-info">{metrics.seoScoreComp}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">Avg Plan Pricing</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-foreground">₹{metrics.avgPriceOur}</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-success">₹{metrics.avgPriceComp}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">Social Followers</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-foreground">{(metrics.followersOur / 1000).toFixed(0)}K</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-info">{(metrics.followersComp / 1000000).toFixed(1)}M</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">Monthly Traffic</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-foreground font-mono">{(metrics.trafficOur / 1000).toFixed(0)}K/mo</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-info font-mono">{(metrics.trafficComp / 1000).toFixed(0)}K/mo</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">Tracked SERP Keywords</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-foreground">{metrics.keywordsOur}</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-info">{metrics.keywordsComp}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-accent/30">
+          <CardContent className="p-4">
+            <span className="text-xs text-muted-foreground font-semibold">Backlinks Total</span>
+            <div className="mt-2 flex items-center justify-between">
+              <div>
+                <span className="text-xs text-muted-foreground block">{compName} (Us)</span>
+                <span className="text-2xl font-bold text-foreground">{metrics.backlinksOur}</span>
+              </div>
+              <span className="text-xs font-bold text-muted-foreground">VS</span>
+              <div className="text-right">
+                <span className="text-xs text-muted-foreground block">{targetComp.name}</span>
+                <span className="text-2xl font-bold text-info">{metrics.backlinksComp}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader>

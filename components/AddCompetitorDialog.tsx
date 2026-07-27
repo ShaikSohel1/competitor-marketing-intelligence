@@ -186,6 +186,36 @@ export function AddCompetitorDialog({ trigger, onAdded }: AddCompetitorDialogPro
 
         {step === 1 ? (
           <form onSubmit={handleNext} className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground font-semibold uppercase">Quick Pick Demo Competitor Preset</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { name: 'Lenskart', site: 'lenskart.com', ind: 'Eyewear & Retail' },
+                  { name: 'Amazon', site: 'amazon.com', ind: 'E-Commerce & Cloud' },
+                  { name: 'Netflix', site: 'netflix.com', ind: 'Media & Streaming' },
+                  { name: 'OpenAI', site: 'openai.com', ind: 'Artificial Intelligence' },
+                  { name: 'Spotify', site: 'spotify.com', ind: 'Audio & Music' },
+                  { name: 'Google', site: 'google.com', ind: 'Search & Cloud' },
+                ].map((preset) => (
+                  <Button
+                    key={preset.name}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-xs h-7"
+                    onClick={() => {
+                      setName(preset.name);
+                      setWebsite(preset.site);
+                      setIndustry(preset.ind);
+                      toast({ title: `${preset.name} preset selected`, description: 'Fields filled automatically.' });
+                    }}
+                  >
+                    {preset.name}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="c-name">Competitor name *</Label>

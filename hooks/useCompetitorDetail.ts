@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/workspace';
+import { fetchCompanyProfile } from '@/lib/api';
 import type {
   Competitor,
+  CompanyProfile,
   Scan,
   ChangeEvent,
   WebsiteSnapshot,
   SeoKeyword,
   SocialPost,
   PricingItem,
-  Advertisement,
+  AdCreative,
   AiInsight,
   Alert,
 } from '@/types';
 
 interface CompetitorDetailData {
+  ourCompany: CompanyProfile | null;
   competitor: Competitor | null;
   scans: Scan[];
   events: ChangeEvent[];
@@ -21,7 +25,7 @@ interface CompetitorDetailData {
   seoKeywords: SeoKeyword[];
   socialPosts: SocialPost[];
   pricingItems: PricingItem[];
-  advertisements: Advertisement[];
+  advertisements: AdCreative[];
   insights: AiInsight[];
   alerts: Alert[];
   loading: boolean;
@@ -30,6 +34,7 @@ interface CompetitorDetailData {
 }
 
 export function useCompetitorDetail(competitorId: string | undefined): CompetitorDetailData {
+  const [ourCompany, setOurCompany] = useState<CompanyProfile | null>(null);
   const [competitor, setCompetitor] = useState<Competitor | null>(null);
   const [scans, setScans] = useState<Scan[]>([]);
   const [events, setEvents] = useState<ChangeEvent[]>([]);
@@ -37,7 +42,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
   const [seoKeywords, setSeoKeywords] = useState<SeoKeyword[]>([]);
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
   const [pricingItems, setPricingItems] = useState<PricingItem[]>([]);
-  const [advertisements, setAdvertisements] = useState<Advertisement[]>([]);
+  const [advertisements, setAdCreatives] = useState<AdCreative[]>([]);
   const [insights, setInsights] = useState<AiInsight[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,28 +56,72 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
     setLoading(true);
     setError(null);
     try {
-      const [compRes, scanRes, eventRes, webRes, seoRes, socialRes, pricingRes, adRes, insightRes, alertRes] = await Promise.all([
-        supabase.from('competitors').select('*').eq('id', competitorId).maybeSingle(),
+      const userId = await getUserId();
+      const profilePromise = fetchCompanyProfile().catch(() => null);
+      const compResPromise = supabase
+        .from('competitors')
+        .select('*')
+        .eq('id', competitorId)
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      const [myProfile, compRes] = await Promise.all([profilePromise, compResPromise]);
+      setOurCompany(myProfile);
+
+      if (compRes.error) {
+        throw compRes.error;
+      }
+
+      const competitorInWorkspace = compRes.data;
+      if (!competitorInWorkspace) {
+        setCompetitor(null);
+        setScans([]);
+        setEvents([]);
+        setWebsiteSnapshots([]);
+        setSeoKeywords([]);
+        setSocialPosts([]);
+        setPricingItems([]);
+        setAdCreatives([]);
+        setInsights([]);
+        setAlerts([]);
+        setLoading(false);
+        return;
+      }
+
+      const [scanRes, eventRes, webRes, seoRes, socialRes, pricingRes, adRes, insightRes, alertRes] = await Promise.all([
         supabase.from('scans').select('*').eq('competitor_id', competitorId).order('created_at', { ascending: false }).limit(10),
         supabase.from('change_events').select('*').eq('competitor_id', competitorId).order('detected_at', { ascending: false }).limit(50),
         supabase.from('website_snapshots').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(20),
         supabase.from('seo_keywords').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(100),
         supabase.from('social_posts').select('*').eq('competitor_id', competitorId).order('posted_at', { ascending: false, nullsFirst: false }).limit(50),
         supabase.from('pricing_items').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(100),
-        supabase.from('advertisements').select('*').eq('competitor_id', competitorId).order('last_seen_at', { ascending: false }).limit(50),
+        supabase.from('ad_creatives').select('*').eq('competitor_id', competitorId).order('last_seen_at', { ascending: false }).limit(50),
         supabase.from('ai_insights').select('*').eq('competitor_id', competitorId).order('created_at', { ascending: false }).limit(20),
         supabase.from('alerts').select('*').eq('competitor_id', competitorId).order('created_at', { ascending: false }).limit(20),
       ]);
 
-      if (compRes.error) throw compRes.error;
-      setCompetitor((compRes.data ?? null) as Competitor | null);
+      setCompetitor((competitorInWorkspace ?? null) as Competitor | null);
       setScans((scanRes.data ?? []) as Scan[]);
       setEvents((eventRes.data ?? []) as ChangeEvent[]);
       setWebsiteSnapshots((webRes.data ?? []) as WebsiteSnapshot[]);
       setSeoKeywords((seoRes.data ?? []) as SeoKeyword[]);
       setSocialPosts((socialRes.data ?? []) as SocialPost[]);
       setPricingItems((pricingRes.data ?? []) as PricingItem[]);
-      setAdvertisements((adRes.data ?? []) as Advertisement[]);
+      setAdCreatives((adRes.data ?? []).map(a => ({
+        id: a.id,
+        competitor_id: a.competitor_id,
+        user_id: a.user_id,
+        platform: a.platform,
+        ad_type: a.format || 'Image',
+        headline: a.headline,
+        creative_url: a.creative_url,
+        landing_url: a.landing_url,
+        budget_estimate: a.metadata?.budget_estimate ? Number(a.metadata.budget_estimate) : 25000,
+        status: a.status,
+        first_seen_at: a.first_seen_at,
+        last_seen_at: a.last_seen_at,
+        created_at: a.created_at,
+      })) as unknown as AdCreative[]);
       setInsights((insightRes.data ?? []) as AiInsight[]);
       setAlerts((alertRes.data ?? []) as Alert[]);
     } catch (err) {
@@ -87,6 +136,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
   }, [load]);
 
   return {
+    ourCompany,
     competitor,
     scans,
     events,

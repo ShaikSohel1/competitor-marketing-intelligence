@@ -18,6 +18,7 @@ import {
   Radar,
   X,
   GitCompareArrows,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -31,6 +32,7 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/app/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/app/company', label: 'My Company', icon: Building2 },
   { to: '/app/competitors', label: 'Competitors', icon: Users },
   { to: '/app/website', label: 'Website Monitoring', icon: Globe },
   { to: '/app/seo', label: 'SEO & Keywords', icon: Search },

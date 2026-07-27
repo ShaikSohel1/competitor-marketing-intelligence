@@ -114,7 +114,7 @@ export default function () {
       ) : reports.length === 0 ? (
         <EmptyState
           icon={FileText}
-          title="No reports yet"
+          title="No reports generated yet."
           description={competitors.length === 0 ? 'Add competitors first, then generate a report.' : 'Generate your first AI-powered competitor report.'}
           action={competitors.length > 0 ? <Button onClick={() => setGenOpen(true)}><Sparkles className="mr-2 h-4 w-4" /> Generate Report</Button> : undefined}
         />
@@ -191,9 +191,14 @@ export default function () {
         <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto scrollbar-thin">
           {viewing && (
             <>
-              <DialogHeader>
-                <DialogTitle className="text-xl">{viewing.title}</DialogTitle>
-                <DialogDescription>{formatDate(viewing.period_start)} — {formatDate(viewing.period_end)} · {viewing.scope} scope</DialogDescription>
+              <DialogHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <DialogTitle className="text-xl">{viewing.title}</DialogTitle>
+                  <DialogDescription>{formatDate(viewing.period_start)} — {formatDate(viewing.period_end)} · {viewing.scope} scope</DialogDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => window.print()} className="print:hidden">
+                  <Download className="mr-2 h-4 w-4" /> Export PDF
+                </Button>
               </DialogHeader>
               <div className="space-y-5">
                 <div className="rounded-lg border bg-muted/30 p-4">

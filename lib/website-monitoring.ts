@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import FirecrawlApp from "@mendable/firecrawl-js";
 import { diffWords } from 'diff';
 import crypto from 'crypto';
 
@@ -7,24 +7,31 @@ export type Pillar = 'website' | 'seo' | 'social' | 'pricing' | 'advertising';
 export interface CrawlResult {
   url: string;
   html: string;
-  screenshotBuffer: Buffer;
+  screenshotUrl?: string;
   capturedAt: string;
 }
 
 export async function crawlPage(url: string): Promise<CrawlResult> {
-  const browser = await chromium.launch();
-  const page = await browser.newPage({
-    userAgent: 'RadarBot/1.0 (+https://radar.example.com/bot)', // identify honestly — see PRD Section 12
-  });
-
-  try {
-    await page.goto(url, { waitUntil: 'networkidle', timeout: 30_000 });
-    const html = await page.content();
-    const screenshotBuffer = await page.screenshot({ fullPage: true });
-    return { url, html, screenshotBuffer, capturedAt: new Date().toISOString() };
-  } finally {
-    await browser.close();
+  if (!process.env.FIRECRAWL_API_KEY) {
+    throw new Error("FIRECRAWL_API_KEY is not set");
   }
+
+  console.info(`[Crawl Helper] Starting crawl for ${url}`);
+
+  const app = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY });
+  const scrapeResult = await app.scrapeUrl(url, { formats: ['html', 'screenshot'] });
+  const capturedAt = new Date().toISOString();
+
+  console.info(
+    `[Crawl Helper] Completed crawl for ${url} capturedAt=${capturedAt} screenshot=${Boolean(scrapeResult.screenshot)}`
+  );
+
+  return { 
+    url, 
+    html: scrapeResult.html || '', 
+    screenshotUrl: scrapeResult.screenshot, 
+    capturedAt, 
+  };
 }
 
 // Strips elements that change on every page load but aren't real content changes.

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Radar, TrendingUp, Eye, Target, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
@@ -157,6 +158,14 @@ export default function () {
               {mode === 'signin' ? 'Sign in' : 'Create account'}
             </Button>
           </form>
+
+          {mode === 'signin' && (
+            <div className="mt-4 text-right text-sm text-muted-foreground">
+              <Link href="/forgot-password" className="font-medium text-accent hover:underline underline-offset-4">
+                Forgot password?
+              </Link>
+            </div>
+          )}
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             {mode === 'signin' ? "Don't have an account?" : 'Already have an account?'}{' '}

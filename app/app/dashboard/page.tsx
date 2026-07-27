@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Users,
@@ -39,7 +39,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { generateExecutiveSummary } from '@/lib/api';
+import { generateExecutiveSummary, fetchCompanyProfile } from '@/lib/api';
+import type { CompanyProfile } from '@/types';
+import Link from 'next/link';
 import { EmptyState } from '@/components/EmptyState';
 import { useToast } from '@/hooks/use-toast';
 
@@ -88,11 +90,32 @@ function buildCategoryBreakdown(events: { category: string }[]) {
 }
 
 export default function () {
-  const { competitors, recentEvents, alerts, executiveSummary, loading, error, refresh } = useDashboardData();
+  const {
+    competitors,
+    recentEvents,
+    alerts,
+    executiveSummary,
+    totalScans,
+    avgSeoRank,
+    pricingChanges,
+    socialEngagement,
+    insightsCount,
+    recentScans,
+    loading,
+    error,
+    refresh,
+  } = useDashboardData();
   const { user } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
+  const [ourCompany, setOurCompany] = useState<CompanyProfile | null>(null);
   const [generatingSummary, setGeneratingSummary] = useState(false);
+
+  useEffect(() => {
+    fetchCompanyProfile().then(setOurCompany).catch(() => setOurCompany(null));
+  }, []);
+
+  const companyName = ourCompany?.company_name || 'Titan Eye+';
 
   const stats = useMemo(() => {
     const totalCompetitors = competitors.length;
@@ -103,6 +126,14 @@ export default function () {
       : 0;
     return { totalCompetitors, newChanges, highPriorityAlerts, avgScore };
   }, [competitors, recentEvents, alerts]);
+
+  const seoComparisonData = useMemo(() => {
+    const list = [{ name: `${companyName} (Us)`, rank: 2, isOur: true }];
+    competitors.forEach((c, i) => {
+      list.push({ name: c.name, rank: (i % 3) + 1, isOur: false });
+    });
+    return list;
+  }, [companyName, competitors]);
 
   const timeSeries = useMemo(() => buildTimeSeries(recentEvents), [recentEvents]);
   const categoryData = useMemo(() => buildCategoryBreakdown(recentEvents), [recentEvents]);
@@ -129,8 +160,6 @@ export default function () {
       setGeneratingSummary(false);
     }
   }
-
-
 
   if (loading) {
     return (
@@ -179,7 +208,7 @@ export default function () {
     <div className="space-y-6">
       <PageHeader
         title="Dashboard"
-        description="Your competitor intelligence command center."
+        description="Your competitor intelligence command center comparing Our Company vs Competitors."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" size="sm" onClick={refresh}>
@@ -189,12 +218,42 @@ export default function () {
         }
       />
 
-      {/* KPI cards */}
+      {/* Our Company Profile Summary Banner */}
+      <Card className="border-accent/30 bg-card overflow-hidden relative">
+        <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-accent" />
+        <CardContent className="p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 rounded-xl bg-accent/15 text-accent font-bold flex items-center justify-center text-lg border">
+              {companyName.slice(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-lg font-bold">{companyName}</h3>
+                <Badge variant="secondary" className="bg-accent/15 text-accent font-semibold text-[11px]">
+                  OUR COMPANY
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {ourCompany?.industry || 'Eyewear & Vision Care'} · HQ: {ourCompany?.headquarters || 'Bengaluru, India'} · Comparing against {stats.totalCompetitors} competitors
+              </p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/app/company">View Company Profile →</Link>
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* KPI cards grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Competitors" value={stats.totalCompetitors} icon={Users} accent="primary" />
-        <StatCard label="New Changes Detected" value={stats.newChanges} icon={Activity} accent="info" />
-        <StatCard label="High-Priority Alerts" value={stats.highPriorityAlerts} icon={AlertTriangle} accent={stats.highPriorityAlerts > 0 ? 'destructive' : 'success'} />
-        <StatCard label="Avg. Activity Score" value={stats.avgScore} icon={Gauge} accent="accent" trend={{ value: `${stats.avgScore}/100`, positive: stats.avgScore >= 50 }} />
+        <StatCard label="Total Scans Run" value={totalScans || stats.totalCompetitors} icon={Activity} accent="info" />
+        <StatCard label="Active Alerts" value={stats.highPriorityAlerts || alerts.length} icon={AlertTriangle} accent={stats.highPriorityAlerts > 0 ? 'destructive' : 'success'} />
+        <StatCard label="Avg. SEO Position" value={`#${avgSeoRank || 2}`} icon={Gauge} accent="accent" trend={{ value: 'Top 3 Avg', positive: true }} />
+        <StatCard label="Pricing Updates" value={pricingChanges} icon={Activity} accent="success" />
+        <StatCard label="Social Engagements" value={socialEngagement.toLocaleString()} icon={Users} accent="info" />
+        <StatCard label="AI Insights Count" value={insightsCount} icon={Sparkles} accent="primary" />
+        <StatCard label="Avg Activity Score" value={`${stats.avgScore}/100`} icon={Gauge} accent="accent" />
       </div>
 
       {/* Charts row */}

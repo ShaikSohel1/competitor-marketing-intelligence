@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { getUserCompetitorIds, getUserId } from '@/lib/workspace';
 
 interface AlertsState {
   unreadCount: number;
@@ -27,10 +28,18 @@ export function useAlerts(): AlertsState {
   return {
     unreadCount,
     async refresh() {
+      const competitorIds = await getUserCompetitorIds();
+      if (competitorIds.length === 0) {
+        cachedUnread = 0;
+        emit();
+        return;
+      }
+
       const { count, error } = await supabase
         .from('alerts')
         .select('*', { count: 'exact', head: true })
-        .eq('read', false);
+        .eq('read', false)
+        .in('competitor_id', competitorIds);
       if (!error) {
         cachedUnread = count ?? 0;
         emit();

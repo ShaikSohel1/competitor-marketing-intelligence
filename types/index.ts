@@ -13,6 +13,50 @@ export type InsightType =
   | 'social_sentiment'
   | 'recommendation';
 
+export interface CompanyProfile {
+  id: string;
+  user_id?: string;
+  company_name: string;
+  website: string;
+  industry: string | null;
+  description: string | null;
+  logo_url: string | null;
+  headquarters: string | null;
+  employee_count: number | null;
+  founded_year: number | null;
+  company_size: string | null;
+  annual_revenue: string | null;
+  primary_products: string[] | null;
+  target_market: string | null;
+  social_links: Record<string, string> | null;
+  brand_keywords: string[] | null;
+  brand_color?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ComparisonMetrics {
+  seoScoreOur: number;
+  seoScoreComp: number;
+  avgPriceOur: number;
+  avgPriceComp: number;
+  followersOur: number;
+  followersComp: number;
+  trafficOur: number;
+  trafficComp: number;
+  keywordsOur: number;
+  keywordsComp: number;
+  backlinksOur: number;
+  backlinksComp: number;
+}
+
+export interface SwotAnalysis {
+  strengths: string[];
+  weaknesses: string[];
+  opportunities: string[];
+  threats: string[];
+}
+
 export interface Competitor {
   id: string;
   user_id: string;
@@ -35,7 +79,6 @@ export interface Competitor {
 export interface Scan {
   id: string;
   competitor_id: string;
-  user_id: string;
   status: ScanStatus;
   scan_type: string;
   raw_data: Record<string, unknown> | null;
@@ -49,7 +92,6 @@ export interface Scan {
 export interface ChangeEvent {
   id: string;
   competitor_id: string;
-  user_id: string;
   scan_id: string | null;
   category: string;
   event_type: string;
@@ -64,7 +106,6 @@ export interface ChangeEvent {
 export interface WebsiteSnapshot {
   id: string;
   competitor_id: string;
-  workspace_id: string;
   scan_id: string | null;
   url: string;
   status_code: number | null;
@@ -85,7 +126,6 @@ export interface WebsiteSnapshot {
 export interface SeoKeyword {
   id: string;
   competitor_id: string;
-  user_id: string;
   keyword: string;
   rank: number | null;
   previous_rank: number | null;
@@ -102,7 +142,6 @@ export interface SeoKeyword {
 export interface SocialPost {
   id: string;
   competitor_id: string;
-  user_id: string;
   platform: string;
   post_url: string | null;
   content: string | null;
@@ -120,7 +159,6 @@ export interface SocialPost {
 export interface PricingItem {
   id: string;
   competitor_id: string;
-  user_id: string;
   product_name: string;
   price: number;
   previous_price: number | null;
@@ -134,28 +172,10 @@ export interface PricingItem {
   created_at: string;
 }
 
-export interface Advertisement {
-  id: string;
-  competitor_id: string;
-  user_id: string;
-  platform: string;
-  ad_type: string;
-  headline: string | null;
-  creative_url: string | null;
-  landing_url: string | null;
-  budget_estimate: number | null;
-  status: string;
-  data_source?: string | null;
-  metadata?: Record<string, unknown> | null;
-  first_seen_at: string;
-  last_seen_at: string;
-  created_at: string;
-}
 
 export interface Alert {
   id: string;
   competitor_id: string;
-  user_id: string;
   title: string;
   message: string;
   category: string;
@@ -235,7 +255,6 @@ export interface ChatMessage {
 export interface SocialProfile {
   id: string;
   competitor_id: string;
-  user_id: string;
   platform: 'youtube' | 'linkedin' | 'twitter' | 'instagram' | 'facebook';
   handle: string;
   name: string | null;
@@ -254,7 +273,6 @@ export interface SocialProfile {
 export interface PricingSnapshot {
   id: string;
   competitor_id: string;
-  user_id: string;
   scan_id: string | null;
   url: string | null;
   plans: Array<{
@@ -327,7 +345,6 @@ export interface AlertRule {
 export interface MonitoredUrl {
   id: string;
   competitor_id: string;
-  user_id: string;
   url: string;
   page_type: string;
   label: string | null;
@@ -343,7 +360,6 @@ export interface MonitoredUrl {
 export interface AdCreative {
   id: string;
   competitor_id: string;
-  user_id: string;
   platform: string;
   ad_id: string | null;
   format: string | null;
@@ -368,7 +384,7 @@ export interface NewCompetitorInputV2 extends NewCompetitorInput {
 
 export interface TrackedKeyword {
   id: string;
-  workspace_id: string;
+  user_id: string;
   keyword: string;
   created_at: string;
 }
@@ -376,7 +392,6 @@ export interface TrackedKeyword {
 export interface RankSnapshot {
   id: string;
   keyword_id: string;
-  workspace_id: string;
   domain: string;
   rank: number | null;
   search_volume: number | null;

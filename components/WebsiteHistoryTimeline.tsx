@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, Globe, Code, FileText, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { getUserCompetitorIds } from '@/lib/workspace';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,11 @@ export function WebsiteHistoryTimeline({ competitorId }: WebsiteHistoryTimelineP
         setLoading(true);
         setError(null);
         
+        const competitorIds = await getUserCompetitorIds();
+        if (!competitorIds.includes(competitorId)) {
+          throw new Error('Competitor not found in your workspace.');
+        }
+
         const { data, error } = await supabase
           .from('website_snapshots')
           .select('*')

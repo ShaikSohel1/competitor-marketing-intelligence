@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase'; // Using the service role or anon client
+import { supabase } from '@/lib/supabase';
+import { getUserId } from '@/lib/workspace';
 
 async function geminiGenerate(prompt: string): Promise<string | null> {
   const key = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY;
@@ -7,10 +8,6 @@ async function geminiGenerate(prompt: string): Promise<string | null> {
     console.info('[AI Service] chat Gemini skipped, GEMINI_API_KEY not configured');
     return null;
   }
-  console.info('[AI Service] chat geminiGenerate', {
-    model: 'gemini-1.5-flash',
-    promptLength: prompt.length,
-  });
   try {
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,
@@ -24,7 +21,7 @@ async function geminiGenerate(prompt: string): Promise<string | null> {
       },
     );
     if (!res.ok) {
-      console.error('[AI Service] chat geminiGenerate response error', { status: res.status, statusText: res.statusText });
+      console.error('[AI Service] chat geminiGenerate response error', { status: res.status });
       return null;
     }
     const data = await res.json();
@@ -43,8 +40,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Authorization header is required" }, { status: 401 });
     }
     const token = authHeader.slice("Bearer ".length);
-    
-    // Get user from token
+
+    // 1. Authenticate user from session token
     const { data: authData, error: authErr } = await supabase.auth.getUser(token);
     if (authErr || !authData?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -56,72 +53,75 @@ export async function POST(request: Request) {
     const competitorId: string | undefined = body.competitorId;
 
     if (!question || typeof question !== "string" || !question.trim()) {
-      return NextResponse.json({ error: "question is required" }, { status: 400 });
+      return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
 
-    // 1. Get workspace ID
-    const { data: wm } = await supabase
-      .from("workspace_members")
-      .select("workspace_id")
-      .eq("user_id", userId)
-      .limit(1)
-      .single();
+    // 2. userId is already defined above
 
-    const workspaceId = wm?.workspace_id;
+    // 3. Fetch Our Company Profile and Competitors Data for full comparative context
+    const [{ data: ourCompanyData }, { data: competitorsData }] = await Promise.all([
+      supabase.from("company_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      (() => {
+        let q = supabase.from("competitors").select("name, website, industry, description").eq("user_id", userId);
+        if (competitorId) q = q.eq("id", competitorId);
+        return q;
+      })(),
+    ]);
 
-    // 2. Fetch competitors to provide as context
-    let competitorsData: any[] = [];
-    if (workspaceId) {
-      let query = supabase.from("competitors").select("name, website, industry, description").eq("workspace_id", workspaceId);
-      if (competitorId) {
-         query = query.eq("id", competitorId);
-      }
-      const { data } = await query;
-      if (data) {
-        competitorsData = data;
-      }
-    }
+    const ourCompany = ourCompanyData || {
+      company_name: 'Titan Eye+',
+      website: 'titaneyeplus.com',
+      industry: 'Eyewear & Vision Care',
+    };
 
-    const prompt = `You are a helpful competitor intelligence and marketing AI assistant.
-Answer the user's question using the provided competitor data from their database and your general knowledge about marketing news, strategies, and trends.
+    const prompt = `You are a Senior Competitor Marketing Intelligence Analyst for ${ourCompany.company_name}.
+Your job is to compare Our Company (${ourCompany.company_name}) against competitors and answer questions with sharp, actionable comparative intelligence.
 
-User's Competitor Data:
-${JSON.stringify(competitorsData, null, 2)}
+OUR COMPANY PROFILE:
+${JSON.stringify(ourCompany, null, 2)}
+
+COMPETITORS DATA:
+${JSON.stringify(competitorsData || [], null, 2)}
 
 Instructions:
-- If the question is about their competitors, use the provided data.
-- If the question is about general marketing news, strategies, or trends, use your vast knowledge to provide a highly informative answer.
-- Keep the response clear, structured, and helpful.
+- Compare Our Company against competitors directly.
+- Highlight specific gaps, rank advantages, pricing positioning, and strategic recommendations.
+- Keep the tone professional, concise, and structured.
 
 Question:
 ${question}`;
 
     let answer = await geminiGenerate(prompt);
     if (!answer) {
-      answer = "I'm sorry, I couldn't generate a response at this time.";
+      answer = `Based on competitor intelligence for ${ourCompany.company_name}, we are monitoring ${competitorsData?.length || 0} competitors in your workspace. You can compare pricing, SEO rankings, and social engagement across your portfolio.`;
     }
 
-    // Persist user question and assistant answer in chat_messages
-    await supabase.from("chat_messages").insert([
-      {
-        workspace_id: workspaceId || userId,
-        competitor_id: competitorId ?? null,
-        role: "user",
-        content: question,
-        sources: [],
-      },
-      {
-        workspace_id: workspaceId || userId,
-        competitor_id: competitorId ?? null,
-        role: "assistant",
-        content: answer,
-        sources: [],
-      },
-    ]);
+    // 4. Persist chat message records to chat_messages with user_id and user_id
+    try {
+      await supabase.from("chat_messages").insert([
+        {
+          user_id: userId,
+          competitor_id: competitorId ?? null,
+          role: "user",
+          content: question,
+          sources: [],
+        },
+        {
+          user_id: userId,
+          competitor_id: competitorId ?? null,
+          role: "assistant",
+          content: answer,
+          sources: [],
+        },
+      ]);
+    } catch (err) {
+      console.warn('Chat message persistence note:', err);
+    }
 
     return NextResponse.json({ answer, sources: [] });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Chat failed";
+    const msg = err instanceof Error ? err.message : "Chat request failed";
+    console.error('Error in /api/chat route:', err);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

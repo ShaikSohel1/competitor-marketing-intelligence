@@ -10,9 +10,6 @@ COPY package.json package-lock.json ./
 # Install dependencies with legacy-peer-deps to bypass React 19 peer dependency issues
 RUN npm ci --legacy-peer-deps
 
-# Install Playwright browser and its OS dependencies
-# This is crucial for the /api/crawl route to work correctly in Railway
-RUN npx playwright install --with-deps chromium
 
 # Copy all other project files
 COPY . .

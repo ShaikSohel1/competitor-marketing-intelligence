@@ -1,79 +1,45 @@
 import { NextResponse } from "next/server";
-import { chromium } from "playwright";
-import { createClient } from "@supabase/supabase-js";
+import FirecrawlApp from "@mendable/firecrawl-js";
 
 export async function POST(req: Request) {
+  let url = '';
+  let page_id = '';
+
   try {
-    const authHeader = req.headers.get("Authorization");
-    const { url, page_id } = await req.json();
+    const body = await req.json();
+    url = body.url;
+    page_id = body.page_id;
 
     if (!url || !page_id) {
       return NextResponse.json({ error: "Missing url or page_id" }, { status: 400 });
     }
 
-    // Launch Playwright chromium browser
-    const browser = await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const context = await browser.newContext({
-      viewport: { width: 1280, height: 800 },
-      userAgent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-    });
-
-    const page = await context.newPage();
-
-    // Navigate and wait for network idle
-    await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
-    
-    // Give single-page apps a tiny bit extra time to render DOM
-    await new Promise(resolve => setTimeout(resolve, 2000));
-
-    const html = await page.content();
-    const screenshotBuffer = await page.screenshot({ fullPage: true });
-
-    await browser.close();
-
-    // Upload to Supabase Storage
-    const timestamp = new Date().getTime();
-    const fileName = `${page_id}_${timestamp}.png`;
-    
-    // Create an authenticated client if we received an auth header
-    const supabaseOptions = authHeader ? {
-      global: { headers: { Authorization: authHeader } }
-    } : {};
-    
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      supabaseOptions
-    );
-
-    const { data: uploadData, error: uploadError } = await supabase
-      .storage
-      .from("screenshots")
-      .upload(fileName, screenshotBuffer, {
-        contentType: "image/png",
-        upsert: true
-      });
-
-    if (uploadError) {
-      console.error("Failed to upload screenshot:", uploadError);
+    if (!process.env.FIRECRAWL_API_KEY) {
+      throw new Error("FIRECRAWL_API_KEY is not set");
     }
 
-    const { data: publicUrlData } = supabase
-      .storage
-      .from("screenshots")
-      .getPublicUrl(fileName);
+    console.info(`[Crawl API] Starting crawl for url=${url} page_id=${page_id}`);
+
+    // Initialize Firecrawl app
+    const app = new FirecrawlApp({ apiKey: process.env.FIRECRAWL_API_KEY });
+
+    // Scrape the URL for HTML and a screenshot
+    const scrapeResult = await app.scrapeUrl(url, {
+      formats: ["html", "screenshot"],
+      timeout: 30000,
+    });
+
+    console.info(
+      `[Crawl API] Crawl succeeded for url=${url} page_id=${page_id} screenshot=${Boolean(scrapeResult.screenshot)}`
+    );
 
     return NextResponse.json({ 
-      html, 
-      screenshot_url: publicUrlData.publicUrl 
+      html: scrapeResult.html, 
+      screenshot_url: scrapeResult.screenshot 
     });
 
   } catch (error: any) {
-    console.error("Crawl Error:", error);
+    console.error(`[Crawl API] Crawl failed for url=${url || 'unknown'} page_id=${page_id || 'unknown'}`, error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
