@@ -281,11 +281,58 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Brand SEO Metrics</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <Search className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No SEO Data Available</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to fetch the latest SEO metrics and keyword rankings for your company.</p>
-              </div>
+              {profile.scraped_data?.seo_keywords && profile.scraped_data.seo_keywords.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-xs uppercase bg-muted/50 text-muted-foreground">
+                      <tr>
+                        <th className="px-4 py-3 rounded-tl-lg">Target Keyword</th>
+                        <th className="px-4 py-3">Estimated Rank</th>
+                        <th className="px-4 py-3">Search Volume</th>
+                        <th className="px-4 py-3 rounded-tr-lg">Difficulty</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {profile.scraped_data.seo_keywords.map((kw: any, idx: number) => (
+                        <tr key={idx} className="border-b last:border-0 hover:bg-muted/20">
+                          <td className="px-4 py-3 font-medium">{kw.keyword}</td>
+                          <td className="px-4 py-3">
+                            {kw.rank ? (
+                              <Badge variant={kw.rank <= 10 ? 'default' : 'secondary'} className={kw.rank <= 3 ? 'bg-success/15 text-success hover:bg-success/20' : ''}>
+                                #{kw.rank}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {kw.search_volume ? (kw.search_volume > 1000 ? `${(kw.search_volume/1000).toFixed(1)}K` : kw.search_volume) : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            {kw.difficulty ? (
+                              <div className="flex items-center gap-2">
+                                <div className="h-1.5 w-16 bg-muted rounded-full overflow-hidden">
+                                  <div 
+                                    className={`h-full ${kw.difficulty > 70 ? 'bg-destructive' : kw.difficulty > 40 ? 'bg-info' : 'bg-success'}`}
+                                    style={{ width: `${kw.difficulty}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground">{kw.difficulty}/100</span>
+                              </div>
+                            ) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <Search className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No SEO Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to fetch the latest SEO metrics and keyword rankings for your company.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -295,11 +342,42 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Social Media Presence</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <Share2 className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No Social Data Available</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to analyze your social media performance across platforms.</p>
-              </div>
+              {profile.scraped_data?.social_profiles && profile.scraped_data.social_profiles.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                  {profile.scraped_data.social_profiles.map((social: any, idx: number) => (
+                    <a
+                      key={idx}
+                      href={social.profile_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex flex-col gap-2 rounded-lg border p-4 transition-colors hover:bg-accent/5"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Share2 className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="font-semibold capitalize text-sm">{social.platform}</p>
+                          <p className="text-xs text-muted-foreground truncate">{social.handle}</p>
+                        </div>
+                        <ExternalLink className="h-4 w-4 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+                      </div>
+                      {social.followers && (
+                        <div className="mt-2 text-xs">
+                          <span className="font-bold">{(social.followers / 1000).toFixed(1)}K</span>
+                          <span className="text-muted-foreground ml-1">followers</span>
+                        </div>
+                      )}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <Share2 className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No Social Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to analyze your social media performance across platforms.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -309,11 +387,27 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Catalog & Pricing Tiers</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <DollarSign className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No Pricing Data Available</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Scan your website to automatically detect products and pricing tiers.</p>
-              </div>
+              {profile.scraped_data?.pricing_items && profile.scraped_data.pricing_items.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                  {profile.scraped_data.pricing_items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex flex-col gap-2 rounded-lg border p-4">
+                      <div className="flex justify-between items-start">
+                        <p className="font-semibold text-sm">{item.product_name}</p>
+                        {item.tier && <Badge variant="outline" className="text-xs">{item.tier}</Badge>}
+                      </div>
+                      <p className="text-xl font-bold mt-2">
+                        {item.price > 0 ? `${item.currency} ${item.price}` : 'Free / Contact'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <DollarSign className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No Pricing Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Scan your website to automatically detect products and pricing tiers.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -323,11 +417,31 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Active Campaigns</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <Megaphone className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No Advertising Data Available</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Discover active ad campaigns and marketing strategies by running a scan.</p>
-              </div>
+              {profile.scraped_data?.ad_creatives && profile.scraped_data.ad_creatives.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  {profile.scraped_data.ad_creatives.map((ad: any, idx: number) => (
+                    <div key={idx} className="flex flex-col gap-2 rounded-lg border p-4">
+                      <div className="flex justify-between items-center mb-2">
+                        <Badge variant="secondary">{ad.platform}</Badge>
+                        <span className="text-xs text-muted-foreground capitalize">{ad.format}</span>
+                      </div>
+                      <p className="font-bold text-sm leading-snug">{ad.headline}</p>
+                      {ad.body_text && <p className="text-sm text-muted-foreground mt-1">{ad.body_text}</p>}
+                      {ad.landing_url && (
+                        <a href={ad.landing_url} target="_blank" rel="noopener noreferrer" className="text-xs text-accent hover:underline mt-2 flex items-center gap-1">
+                          View Landing Page <ExternalLink className="h-3 w-3" />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <Megaphone className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No Advertising Data Available</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Discover active ad campaigns and marketing strategies by running a scan.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -337,11 +451,29 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Featured Products Catalog</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <Layers className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No Products Detected</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Your product catalog will appear here once extracted.</p>
-              </div>
+              {profile.scraped_data?.pricing_items && profile.scraped_data.pricing_items.length > 0 ? (
+                <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+                  {profile.scraped_data.pricing_items.map((item: any, idx: number) => (
+                    <div key={idx} className="flex flex-col gap-2 rounded-lg border p-4">
+                      <div className="flex items-center gap-3 mb-2">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Layers className="h-5 w-5" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm leading-tight">{item.product_name}</p>
+                          {item.tier && <p className="text-xs text-muted-foreground">{item.tier}</p>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <Layers className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No Products Detected</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Your product catalog will appear here once extracted.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -351,11 +483,35 @@ export default function MyCompanyPage() {
           <Card>
             <CardHeader><CardTitle className="text-base">Internal AI Brand Positioning</CardTitle></CardHeader>
             <CardContent>
-              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
-                <Sparkles className="h-8 w-8 text-muted-foreground mb-3" />
-                <h3 className="font-semibold text-lg">No AI Insights Yet</h3>
-                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a comprehensive scan to generate AI-driven insights about your market position.</p>
-              </div>
+              {profile.scraped_data?.strategic_insight ? (
+                <div className="space-y-6">
+                  <div className="rounded-lg border bg-accent/5 p-4 text-sm leading-relaxed">
+                    <p className="font-semibold flex items-center gap-2 mb-2">
+                      <Sparkles className="h-4 w-4 text-accent" /> Strategic Summary
+                    </p>
+                    {profile.scraped_data.strategic_insight}
+                  </div>
+                  
+                  {profile.scraped_data.company_info && (
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Target Audience</p>
+                        <p className="text-sm">{profile.scraped_data.company_info.target_audience || 'Unknown'}</p>
+                      </div>
+                      <div className="p-4 border rounded-lg">
+                        <p className="text-xs text-muted-foreground font-semibold uppercase mb-1">Company Description</p>
+                        <p className="text-sm">{profile.scraped_data.company_info.description || 'Unknown'}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                  <Sparkles className="h-8 w-8 text-muted-foreground mb-3" />
+                  <h3 className="font-semibold text-lg">No AI Insights Yet</h3>
+                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a comprehensive scan to generate AI-driven insights about your market position.</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
