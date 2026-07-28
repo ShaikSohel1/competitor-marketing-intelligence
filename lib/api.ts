@@ -1,6 +1,5 @@
 import { supabase } from './supabase';
 import { getUserCompetitorIds, getUserId } from './workspace';
-import { fetchPageSpeedMetrics } from './pagespeed';
 import type {
   Competitor,
   CompetitorWithStats,
@@ -294,13 +293,17 @@ export async function scanOurCompany(): Promise<{ summary: string }> {
   let pageSpeedData: any = null;
 
   try {
-    const [extractRes, psData] = await Promise.all([
+    const [extractRes, psRes] = await Promise.all([
       fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: profile.website, competitorName: profile.company_name }),
       }),
-      fetchPageSpeedMetrics(profile.website)
+      fetch('/api/pagespeed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: profile.website }),
+      })
     ]);
 
     if (extractRes.ok) {
@@ -312,7 +315,11 @@ export async function scanOurCompany(): Promise<{ summary: string }> {
       throw new Error('Failed to scrape company website');
     }
     
-    pageSpeedData = psData;
+    if (psRes.ok) {
+      pageSpeedData = await psRes.json();
+    } else {
+      console.warn('[scanOurCompany] PageSpeed API failed');
+    }
   } catch (err) {
     console.error('[scanOurCompany] Extract/PageSpeed API call failed:', err);
     throw err;
@@ -390,13 +397,17 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
   let pageSpeedData: any = null;
 
   try {
-    const [extractRes, psData] = await Promise.all([
+    const [extractRes, psRes] = await Promise.all([
       fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: competitor.website, competitorName: competitor.name }),
       }),
-      fetchPageSpeedMetrics(competitor.website)
+      fetch('/api/pagespeed', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: competitor.website }),
+      })
     ]);
 
     if (extractRes.ok) {
@@ -409,7 +420,11 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
       console.error('[scanCompetitor] Extract API failed:', errText);
     }
 
-    pageSpeedData = psData;
+    if (psRes.ok) {
+      pageSpeedData = await psRes.json();
+    } else {
+      console.warn('[scanCompetitor] PageSpeed API failed');
+    }
   } catch (err) {
     console.error('[scanCompetitor] Extract/PageSpeed API call failed:', err);
   }
@@ -637,7 +652,94 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
   };
 }
 
+export async function runLighthouseTest(competitorId: string): Promise<void> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
 
+  // Fetch competitor URL
+  const { data: competitor } = await supabase
+    .from('competitors')
+    .select('website')
+    .eq('id', competitorId)
+    .eq('user_id', userId)
+    .single();
+
+  if (!competitor?.website) throw new Error('Competitor website not found');
+
+  // Run Pagespeed API
+  const psRes = await fetch('/api/pagespeed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: competitor.website }),
+  });
+
+  if (!psRes.ok) {
+    throw new Error('Failed to run Lighthouse test');
+  }
+
+  const pageSpeedData = await psRes.json();
+
+  // Find the latest snapshot to update
+  const { data: latestSnapshot } = await supabase
+    .from('website_snapshots')
+    .select('*')
+    .eq('competitor_id', competitorId)
+    .order('captured_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (latestSnapshot) {
+    const newMetadata = { ...((latestSnapshot.metadata as any) || {}), pagespeed: pageSpeedData };
+    await supabase
+      .from('website_snapshots')
+      .update({ metadata: newMetadata })
+      .eq('id', latestSnapshot.id);
+  } else {
+    // If no snapshot exists, create a dummy one just for the pagespeed data
+    await supabase.from('website_snapshots').insert({
+      competitor_id: competitorId,
+      url: competitor.website,
+      word_count: 0,
+      metadata: { pagespeed: pageSpeedData },
+      captured_at: new Date().toISOString(),
+    });
+  }
+}
+
+export async function runOurCompanyLighthouseTest(): Promise<void> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
+
+  const profile = await fetchCompanyProfile();
+  if (!profile || !profile.website) throw new Error('Company profile or website not found');
+
+  const psRes = await fetch('/api/pagespeed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: profile.website }),
+  });
+
+  if (!psRes.ok) {
+    throw new Error('Failed to run Lighthouse test');
+  }
+
+  const pageSpeedData = await psRes.json();
+  const newScrapedData = { ...((profile.scraped_data as any) || {}), pagespeed: pageSpeedData };
+
+  const { error: updateErr } = await supabase
+    .from('company_profiles')
+    .update({
+      scraped_data: newScrapedData,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
+
+  if (updateErr) {
+    throw new Error('Failed to save Lighthouse data');
+  }
+}
 /* ----------------------------- Scans ----------------------------- */
 
 export async function fetchScans(competitorId?: string, limit = 20): Promise<Scan[]> {

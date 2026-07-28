@@ -20,6 +20,7 @@ import {
   Edit,
   Clock,
   Loader2,
+  Zap,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,7 +29,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { fetchCompanyProfile, scanOurCompany } from '@/lib/api';
+import { fetchCompanyProfile, scanOurCompany, runOurCompanyLighthouseTest } from '@/lib/api';
 import { formatCurrency, initials, formatRelativeTime } from '@/lib/format';
 import type { CompanyProfile } from '@/types';
 import { useToast } from '@/hooks/use-toast';
@@ -37,6 +38,7 @@ export default function MyCompanyPage() {
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [runningLighthouse, setRunningLighthouse] = useState(false);
   const [tab, setTab] = useState('overview');
   const { toast } = useToast();
 
@@ -65,6 +67,19 @@ export default function MyCompanyPage() {
     }
   }
 
+  async function handleLighthouseScan() {
+    setRunningLighthouse(true);
+    try {
+      await runOurCompanyLighthouseTest();
+      toast({ title: 'Lighthouse scan complete', description: 'Website performance metrics updated.' });
+      await load(); // Refresh to show new pagespeed data
+    } catch (err) {
+      toast({ title: 'Lighthouse scan failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setRunningLighthouse(false);
+    }
+  }
+
   useEffect(() => {
     load();
   }, [load]);
@@ -90,6 +105,7 @@ export default function MyCompanyPage() {
     primary_products: ['Prescription Eyeglasses', 'Anti-Glare Computer Lenses', 'Contact Lenses', 'Design Sunglasses'],
     brand_keywords: ['Titan Eye+', 'Prescription Glasses', 'Eyewear Online', 'Vision Care'],
     brand_color: '#0F52BA',
+    scraped_data: null as any,
   };
 
   return (
@@ -229,16 +245,26 @@ export default function MyCompanyPage() {
         {/* WEBSITE TAB */}
         <TabsContent value="website" className="mt-4 space-y-4">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
               <CardTitle className="text-base">Official Website Diagnostics</CardTitle>
+              <Button onClick={handleLighthouseScan} disabled={runningLighthouse || scanning} size="sm" variant="outline" className="gap-2">
+                {runningLighthouse ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                {runningLighthouse ? 'Running Test...' : 'Run Lighthouse Only'}
+              </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm"><strong>Title:</strong> {p.company_name} - Official Online Store</p>
-              <p className="text-sm"><strong>Meta Description:</strong> Buy prescription glasses, computer lenses & sunglasses online.</p>
+              <p className="text-sm"><strong>Title:</strong> {p.scraped_data?.website_snapshots?.[0]?.title || `${p.company_name} - Official Online Store`}</p>
+              <p className="text-sm"><strong>Meta Description:</strong> {p.scraped_data?.website_snapshots?.[0]?.meta_description || 'Buy prescription glasses, computer lenses & sunglasses online.'}</p>
               <div className="grid gap-4 sm:grid-cols-3 pt-2">
-                <Badge variant="outline" className="p-3 justify-center text-sm">Performance Score: 94/100</Badge>
-                <Badge variant="outline" className="p-3 justify-center text-sm">Load Time: 280ms</Badge>
-                <Badge variant="outline" className="p-3 justify-center text-sm">Status Code: 200 OK</Badge>
+                <Badge variant={p.scraped_data?.pagespeed?.lighthouse_score ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.lighthouse_score ? "bg-success/15 text-success hover:bg-success/20" : ""}`}>
+                  Performance Score: {p.scraped_data?.pagespeed?.lighthouse_score || 0}/100
+                </Badge>
+                <Badge variant={p.scraped_data?.pagespeed?.page_load_ms ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.page_load_ms ? "bg-success/15 text-success hover:bg-success/20" : ""}`}>
+                  Load Time: {p.scraped_data?.pagespeed?.page_load_ms || 0}ms
+                </Badge>
+                <Badge variant={p.scraped_data?.pagespeed?.seo_score ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.seo_score ? "bg-info/15 text-info hover:bg-info/20" : ""}`}>
+                  SEO Score: {p.scraped_data?.pagespeed?.seo_score || 0}/100
+                </Badge>
               </div>
             </CardContent>
           </Card>

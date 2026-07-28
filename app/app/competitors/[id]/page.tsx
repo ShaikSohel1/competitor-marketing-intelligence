@@ -41,7 +41,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { useCompetitorDetail } from '@/hooks/useCompetitorDetail';
-import { fetchCompetitor, updateCompetitor, deleteCompetitor, scanCompetitor, generateInsight } from '@/lib/api';
+import { fetchCompetitor, updateCompetitor, deleteCompetitor, scanCompetitor, runLighthouseTest, generateInsight } from '@/lib/api';
 import { PageHeader } from '@/components/PageHeader';
 import { ChartTooltip } from '@/components/ChartTooltip';
 import { EmptyState } from '@/components/EmptyState';
@@ -110,6 +110,7 @@ export default function CompetitorDetailPage() {
   const detail = useCompetitorDetail(id);
 
   const [scanning, setScanning] = useState(false);
+  const [runningLighthouse, setRunningLighthouse] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -128,6 +129,20 @@ export default function CompetitorDetailPage() {
       toast({ title: 'Scan failed', description: err instanceof Error ? err.message : undefined, variant: 'destructive' });
     } finally {
       setScanning(false);
+    }
+  }
+
+  async function handleLighthouseScan() {
+    if (!id) return;
+    setRunningLighthouse(true);
+    try {
+      await runLighthouseTest(id);
+      toast({ title: 'Lighthouse scan complete', description: 'Website performance metrics updated.' });
+      await detail.refresh();
+    } catch (err) {
+      toast({ title: 'Lighthouse scan failed', description: err instanceof Error ? err.message : undefined, variant: 'destructive' });
+    } finally {
+      setRunningLighthouse(false);
     }
   }
 
@@ -419,7 +434,13 @@ export default function CompetitorDetailPage() {
         {/* PART 7: WEBSITE COMPARISON */}
         <TabsContent value="website" className="space-y-4 mt-4">
           <Card>
-            <CardHeader><CardTitle className="text-base">Website Performance Comparison</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base">Website Performance Comparison</CardTitle>
+              <Button onClick={handleLighthouseScan} disabled={runningLighthouse || scanning} size="sm" variant="outline" className="gap-2">
+                {runningLighthouse ? <Loader2 className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
+                {runningLighthouse ? 'Running Test...' : 'Run Lighthouse Only'}
+              </Button>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>

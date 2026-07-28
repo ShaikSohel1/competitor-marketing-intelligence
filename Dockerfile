@@ -37,6 +37,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
+# Install chromium for local Lighthouse execution
+RUN apt-get update && apt-get install -y chromium && rm -rf /var/lib/apt/lists/*
+
 COPY --from=builder /app/public ./public
 
 # Set the correct permission for prerender cache

@@ -28,10 +28,10 @@ Return this exact schema:
   ],
   "pricing_items": [
     {
-      "product_name": "string — name of the product or plan",
+      "product_name": "string — name of the product, plan, or featured item (e.g., 'Wayfarer Sunglasses', 'Pro Plan')",
       "price": "number — numeric price value (0 if free or not listed)",
       "currency": "string — 3-letter currency code e.g. USD, INR, EUR",
-      "tier": "string|null — tier name like Basic, Pro, Enterprise"
+      "tier": "string|null — tier name like Basic, Pro, or category like 'Eyewear'"
     }
   ],
   "social_profiles": [
@@ -68,7 +68,7 @@ Return this exact schema:
 
 RULES:
 - Extract 5-15 SEO keywords the site is clearly targeting based on headings, content, and meta tags.
-- Extract ALL pricing items visible on any page. Use 0 for free tiers.
+- Extract ALL pricing items visible on any page. For SaaS, extract pricing plans. For E-commerce (like Lenskart/Titan Eye+), extract ANY featured products with prices found on the homepage or categories. Use 0 if the price is missing or free.
 - Extract ALL social media links found anywhere on the site.
 - Infer 2-4 ad creatives the company might run based on their value propositions. The "format" field MUST be one of: image, video, carousel, text, unknown.
 - For discovered_pages, list important internal links you found. The "page_type" MUST be one of: homepage, pricing, blog, careers, product, features, about, docs, changelog, general.
