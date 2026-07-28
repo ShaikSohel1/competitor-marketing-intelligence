@@ -42,7 +42,7 @@ export function AddCompetitorDialog({ trigger, onAdded }: AddCompetitorDialogPro
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showSocials, setShowSocials] = useState(false);
+  const [showSocials, setShowSocials] = useState(true);
   const [discoveredPages, setDiscoveredPages] = useState<DiscoveredPage[]>([]);
   
   const { toast } = useToast();
@@ -62,7 +62,7 @@ export function AddCompetitorDialog({ trigger, onAdded }: AddCompetitorDialogPro
     setFacebook('');
     setYoutube('');
     setError(null);
-    setShowSocials(false);
+    setShowSocials(true);
     setDiscoveredPages([]);
   }
 

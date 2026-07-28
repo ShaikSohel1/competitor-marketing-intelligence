@@ -297,7 +297,11 @@ export async function scanOurCompany(): Promise<{ summary: string }> {
       fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: profile.website, competitorName: profile.company_name }),
+        body: JSON.stringify({
+          url: profile.website,
+          competitorName: profile.company_name,
+          social_links: profile.social_links || {},
+        }),
       }),
       fetch('/api/pagespeed', {
         method: 'POST',
@@ -401,7 +405,11 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
       fetch('/api/extract', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: competitor.website, competitorName: competitor.name }),
+        body: JSON.stringify({
+          url: competitor.website,
+          competitorName: competitor.name,
+          social_links: competitor.social_links || {},
+        }),
       }),
       fetch('/api/pagespeed', {
         method: 'POST',
@@ -498,25 +506,61 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
 
   // 5d. Social Profiles (schema: competitor_id, platform, handle (NOT NULL), followers)
   const VALID_PLATFORMS = ['youtube', 'linkedin', 'twitter', 'instagram', 'facebook'];
-  if (extractedData?.social_profiles?.length > 0) {
-    const socialRows = extractedData.social_profiles
-      .filter((s: any) => s.handle || s.profile_url)
-      .map((s: any) => {
-        const platform = (s.platform || 'unknown').toLowerCase();
-        return {
-          competitor_id: competitorId,
-          platform: VALID_PLATFORMS.includes(platform) ? platform : 'twitter',
-          handle: s.handle || s.profile_url || competitor.name.toLowerCase().replace(/\s+/g, ''),
-          name: competitor.name,
-          followers: typeof s.followers === 'number' ? s.followers : null,
-          data_source: 'scraping',
-          captured_at: now,
-        };
-      });
-    if (socialRows.length > 0) {
-      inserts.push(supabase.from('social_profiles').insert(socialRows) as any);
-      totalChanges += socialRows.length;
+  const socialMap = new Map<string, any>();
+
+  // First, add rows from user-provided social_links
+  const knownLinks = (competitor.social_links || {}) as Record<string, string>;
+  for (const [platKey, rawUrl] of Object.entries(knownLinks)) {
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) continue;
+    const lowerPlat = platKey.toLowerCase();
+    const plat = VALID_PLATFORMS.includes(lowerPlat) ? lowerPlat : 'twitter';
+    let handle = rawUrl.trim();
+    if (handle.startsWith('http://') || handle.startsWith('https://')) {
+      try {
+        const u = new URL(handle);
+        const pathPart = u.pathname.replace(/\/$/, '');
+        handle = pathPart.split('/').pop() || handle;
+      } catch {
+        // keep string as is
+      }
     }
+    handle = handle.replace(/^@/, '');
+
+    socialMap.set(plat, {
+      competitor_id: competitorId,
+      platform: plat,
+      handle: handle || competitor.name.toLowerCase().replace(/\s+/g, ''),
+      name: competitor.name,
+      followers: null,
+      data_source: 'user_provided',
+      captured_at: now,
+    });
+  }
+
+  // Then merge AI extracted profiles
+  if (extractedData?.social_profiles?.length > 0) {
+    for (const s of extractedData.social_profiles) {
+      if (!s.handle && !s.profile_url) continue;
+      const platform = (s.platform || 'unknown').toLowerCase();
+      const plat = VALID_PLATFORMS.includes(platform) ? platform : 'twitter';
+      const existing = socialMap.get(plat) || {};
+
+      socialMap.set(plat, {
+        competitor_id: competitorId,
+        platform: plat,
+        handle: s.handle || s.profile_url || existing.handle || competitor.name.toLowerCase().replace(/\s+/g, ''),
+        name: competitor.name,
+        followers: typeof s.followers === 'number' ? s.followers : existing.followers || null,
+        data_source: 'scraping',
+        captured_at: now,
+      });
+    }
+  }
+
+  const socialRows = Array.from(socialMap.values());
+  if (socialRows.length > 0) {
+    inserts.push(supabase.from('social_profiles').insert(socialRows) as any);
+    totalChanges += socialRows.length;
   }
 
   // 5e. Ad Creatives (schema: competitor_id, platform, headline, body_text, format — CHECK: image|video|carousel|text|unknown)

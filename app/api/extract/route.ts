@@ -103,6 +103,7 @@ export async function POST(req: Request) {
     const body = await req.json();
     url = body.url;
     competitorName = body.competitorName || "Unknown";
+    const socialLinks = body.social_links || body.socialLinks || {};
 
     if (!url) {
       return NextResponse.json({ error: "Missing url" }, { status: 400 });
@@ -148,12 +149,15 @@ export async function POST(req: Request) {
     // ── 3. Groq: structured extraction ──────────────────────────────
     // Truncate to stay within token limits (llama-3.1-70b-versatile supports 128k tokens)
     const truncatedMarkdown = combinedMarkdown.substring(0, 150000);
+    const socialContext = Object.keys(socialLinks).length > 0
+      ? `User Provided Social Media Links: ${JSON.stringify(socialLinks)}\n`
+      : "";
 
     const promptText = `${GROQ_SYSTEM_PROMPT}
 
 Competitor Name: ${competitorName}
 Competitor URL: ${url}
-
+${socialContext}
 --- SCRAPED WEBSITE CONTENT ---
 ${truncatedMarkdown}`;
 
@@ -169,7 +173,7 @@ ${truncatedMarkdown}`;
         model: "meta-llama/llama-3.3-70b-instruct",
         messages: [
           { role: "system", content: GROQ_SYSTEM_PROMPT },
-          { role: "user", content: `Competitor Name: ${competitorName}\nCompetitor URL: ${url}\n\n--- SCRAPED WEBSITE CONTENT ---\n${truncatedMarkdown}` }
+          { role: "user", content: promptText }
         ],
         temperature: 0.1,
         response_format: { type: "json_object" }

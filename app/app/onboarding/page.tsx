@@ -26,29 +26,31 @@ import { saveCompanyProfile } from '@/lib/api';
 
 import { useToast } from '@/hooks/use-toast';
 import { normalizeUrl } from '@/lib/format';
+import { useAuth } from '@/context/AuthContext';
 
 export default function CompanyOnboardingPage() {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  const [companyName, setCompanyName] = useState('Titan Eye+');
-  const [website, setWebsite] = useState('titaneyeplus.com');
-  const [industry, setIndustry] = useState('Eyewear & Vision Care');
-  const [description, setDescription] = useState('India\'s leading omnichannel eyewear brand providing prescription glasses, sunglasses, and contact lenses.');
-  const [logoUrl, setLogoUrl] = useState('https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=200&auto=format&fit=crop&q=80');
-  const [headquarters, setHeadquarters] = useState('Bengaluru, India');
-  const [employeeCount, setEmployeeCount] = useState(4500);
-  const [foundedYear, setFoundedYear] = useState(2007);
-  const [annualRevenue, setAnnualRevenue] = useState('₹1,250 Cr');
-  const [primaryProducts, setPrimaryProducts] = useState('Prescription Eyeglasses, Computer Glasses, Contact Lenses, Sunglasses');
-  const [targetMarket, setTargetMarket] = useState('India & South Asia Consumer Market');
-  const [brandKeywords, setBrandKeywords] = useState('Titan Eye+, Eyeglasses, Prescription Lenses, Computer Glasses');
+  const [companyName, setCompanyName] = useState('');
+  const [website, setWebsite] = useState('');
+  const [industry, setIndustry] = useState('');
+  const [description, setDescription] = useState('');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [headquarters, setHeadquarters] = useState('');
+  const [employeeCount, setEmployeeCount] = useState<number | ''>('');
+  const [foundedYear, setFoundedYear] = useState<number | ''>('');
+  const [annualRevenue, setAnnualRevenue] = useState('');
+  const [primaryProducts, setPrimaryProducts] = useState('');
+  const [targetMarket, setTargetMarket] = useState('');
+  const [brandKeywords, setBrandKeywords] = useState('');
   const [brandColor, setBrandColor] = useState('#0F52BA');
-  const [linkedin, setLinkedin] = useState('https://linkedin.com/company/titan-eyeplus');
-  const [instagram, setInstagram] = useState('https://instagram.com/titaneyeplus');
-  const [twitter, setTwitter] = useState('https://twitter.com/titaneyeplus');
+  const [linkedin, setLinkedin] = useState('');
+  const [instagram, setInstagram] = useState('');
+  const [twitter, setTwitter] = useState('');
 
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { refreshProfile } = useAuth();
 
   async function handleFinish(e: React.FormEvent) {
     e.preventDefault();
@@ -83,6 +85,9 @@ export default function CompanyOnboardingPage() {
           twitter: twitter ? normalizeUrl(twitter) : '',
         },
       });
+
+      // Update the auth context so ProtectedRoute knows we're onboarded
+      await refreshProfile();
 
       toast({ title: 'Company Onboarding Complete!', description: `${companyName} is now set as Our Company.` });
       router.push('/app/dashboard');

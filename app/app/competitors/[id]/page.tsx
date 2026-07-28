@@ -45,6 +45,7 @@ import { fetchCompetitor, updateCompetitor, deleteCompetitor, scanCompetitor, ru
 import { PageHeader } from '@/components/PageHeader';
 import { ChartTooltip } from '@/components/ChartTooltip';
 import { EmptyState } from '@/components/EmptyState';
+import { SocialMediaHandlesCard } from '@/components/SocialMediaHandlesCard';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -563,6 +564,11 @@ export default function CompetitorDetailPage() {
 
         {/* PART 5: SOCIAL COMPARISON */}
         <TabsContent value="social" className="space-y-4 mt-4">
+          <SocialMediaHandlesCard
+            competitor={c}
+            socialProfiles={detail.socialProfiles}
+            onRefresh={detail.refresh}
+          />
           <Card>
             <CardHeader><CardTitle className="text-base">Social Media Channel Comparison</CardTitle></CardHeader>
             <CardContent>

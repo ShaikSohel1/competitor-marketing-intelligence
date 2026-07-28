@@ -34,10 +34,11 @@ export default function () {
     try {
       if (mode === 'signin') {
         await signIn(email, password);
+        router.push('/app/dashboard');
       } else {
         await signUp(email, password);
+        router.push('/app/onboarding');
       }
-      router.push('/app/dashboard');
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Authentication failed.';
       if (msg.toLowerCase().includes('invalid login')) {
