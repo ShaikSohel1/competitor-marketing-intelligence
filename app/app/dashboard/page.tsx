@@ -397,7 +397,7 @@ export default function () {
                   <Badge variant="secondary" className="gap-1">
                     <Sparkles className="h-3 w-3" />
                     {executiveSummary.metadata && typeof executiveSummary.metadata === 'object' && 'generatedBy' in executiveSummary.metadata
-                      ? String(executiveSummary.metadata.generatedBy) === 'gemini' ? 'Gemini AI' : 'Heuristic'
+                      ? (String(executiveSummary.metadata.generatedBy) === 'gemini' || String(executiveSummary.metadata.generatedBy) === 'groq') ? 'Groq AI' : 'Heuristic'
                       : 'AI'}
                   </Badge>
                   <span>{formatRelativeTime(executiveSummary.created_at)}</span>

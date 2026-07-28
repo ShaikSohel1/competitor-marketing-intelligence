@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { User, Sliders, Sparkles, Loader2, LogOut, Bell, Shield, Key } from 'lucide-react';
+import { User, Sliders, Sparkles, Loader2, LogOut, Bell, Shield, Key, Bot } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { useCompetitorList } from '@/hooks/useCompetitorList';
 import { updateCompetitor, triggerDigest } from '@/lib/api';
@@ -129,11 +129,11 @@ export default function () {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
-                  <Key className="h-4 w-4" />
+                <div className="bg-primary/10 p-2 rounded-lg text-primary">
+                  <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Gemini API</p>
+                  <p className="text-sm font-medium">Groq API</p>
                   <p className="text-xs text-muted-foreground">Configured server-side</p>
                 </div>
               </div>
@@ -145,7 +145,7 @@ export default function () {
             <div className="grid grid-cols-2 gap-3">
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Model</p>
-                <p className="mt-1 text-sm font-medium">Gemini 1.5 Flash</p>
+                <p className="mt-1 text-sm font-medium">Llama 3 70B</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">Fallback</p>

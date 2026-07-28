@@ -19,6 +19,7 @@ import {
   ExternalLink,
   Edit,
   Clock,
+  Loader2,
 } from 'lucide-react';
 import { PageHeader } from '@/components/PageHeader';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -27,14 +28,17 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { fetchCompanyProfile } from '@/lib/api';
+import { fetchCompanyProfile, scanOurCompany } from '@/lib/api';
 import { formatCurrency, initials, formatRelativeTime } from '@/lib/format';
 import type { CompanyProfile } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 export default function MyCompanyPage() {
   const [profile, setProfile] = useState<CompanyProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scanning, setScanning] = useState(false);
   const [tab, setTab] = useState('overview');
+  const { toast } = useToast();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -47,6 +51,19 @@ export default function MyCompanyPage() {
       setLoading(false);
     }
   }, []);
+
+  async function handleScan() {
+    setScanning(true);
+    try {
+      const result = await scanOurCompany();
+      toast({ title: 'Company scan complete', description: result.summary });
+      await load(); // Refresh to show new scraped data
+    } catch (err) {
+      toast({ title: 'Scan failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setScanning(false);
+    }
+  }
 
   useEffect(() => {
     load();
@@ -82,6 +99,15 @@ export default function MyCompanyPage() {
         description={`My Company Profile · ${p.industry || 'Market Leader'} · Workspace Primary Entity`}
         actions={
           <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              onClick={handleScan}
+              disabled={scanning}
+              className="gap-2"
+            >
+              {scanning ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              {scanning ? 'Scanning...' : 'Scan Our Website'}
+            </Button>
             <Button variant="outline" size="sm" asChild>
               <Link href="/app/onboarding">
                 <Edit className="mr-2 h-4 w-4" /> {profile ? 'Edit Profile' : 'Create Company Profile'}

@@ -41,7 +41,7 @@ export default function () {
 
   const serviceCounts = insights.reduce(
     (acc, insight) => {
-      const service = insight.metadata?.generatedBy === 'gemini' ? 'Gemini AI' : 'Heuristic';
+      const service = (insight.metadata?.generatedBy === 'gemini' || insight.metadata?.generatedBy === 'groq') ? 'Groq AI' : 'Heuristic';
       acc[service] = (acc[service] ?? 0) + 1;
       return acc;
     },
@@ -51,7 +51,7 @@ export default function () {
   const recentLogs = insights.slice(0, 5).map((insight) => ({
     id: insight.id,
     title: insight.title,
-    service: insight.metadata?.generatedBy === 'gemini' ? 'Gemini AI' : 'Heuristic',
+    service: (insight.metadata?.generatedBy === 'gemini' || insight.metadata?.generatedBy === 'groq') ? 'Groq AI' : 'Heuristic',
     createdAt: insight.created_at,
   }));
 
@@ -75,7 +75,7 @@ export default function () {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3">
-              <Badge variant="outline">Gemini AI: {serviceCounts['Gemini AI'] ?? 0}</Badge>
+              <Badge variant="outline">Groq AI: {serviceCounts['Groq AI'] ?? 0}</Badge>
               <Badge variant="outline">Heuristic: {serviceCounts['Heuristic'] ?? 0}</Badge>
             </div>
             <div className="space-y-2">
@@ -129,7 +129,7 @@ export default function () {
                         <span>· {formatRelativeTime(ins.created_at)}</span>
                         {ins.metadata && typeof ins.metadata === 'object' && 'generatedBy' in ins.metadata && (
                           <Badge variant="outline" className="text-[10px]">
-                            {String(ins.metadata.generatedBy) === 'gemini' ? 'Gemini AI' : 'Heuristic'}
+                            {(String(ins.metadata.generatedBy) === 'gemini' || String(ins.metadata.generatedBy) === 'groq') ? 'Groq AI' : 'Heuristic'}
                           </Badge>
                         )}
                       </div>

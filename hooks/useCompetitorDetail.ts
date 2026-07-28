@@ -10,6 +10,7 @@ import type {
   WebsiteSnapshot,
   SeoKeyword,
   SocialPost,
+  SocialProfile,
   PricingItem,
   AdCreative,
   AiInsight,
@@ -24,6 +25,7 @@ interface CompetitorDetailData {
   websiteSnapshots: WebsiteSnapshot[];
   seoKeywords: SeoKeyword[];
   socialPosts: SocialPost[];
+  socialProfiles: SocialProfile[];
   pricingItems: PricingItem[];
   advertisements: AdCreative[];
   insights: AiInsight[];
@@ -41,6 +43,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
   const [websiteSnapshots, setWebsiteSnapshots] = useState<WebsiteSnapshot[]>([]);
   const [seoKeywords, setSeoKeywords] = useState<SeoKeyword[]>([]);
   const [socialPosts, setSocialPosts] = useState<SocialPost[]>([]);
+  const [socialProfiles, setSocialProfiles] = useState<SocialProfile[]>([]);
   const [pricingItems, setPricingItems] = useState<PricingItem[]>([]);
   const [advertisements, setAdCreatives] = useState<AdCreative[]>([]);
   const [insights, setInsights] = useState<AiInsight[]>([]);
@@ -80,6 +83,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
         setWebsiteSnapshots([]);
         setSeoKeywords([]);
         setSocialPosts([]);
+        setSocialProfiles([]);
         setPricingItems([]);
         setAdCreatives([]);
         setInsights([]);
@@ -88,12 +92,13 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
         return;
       }
 
-      const [scanRes, eventRes, webRes, seoRes, socialRes, pricingRes, adRes, insightRes, alertRes] = await Promise.all([
+      const [scanRes, eventRes, webRes, seoRes, socialRes, socialProfileRes, pricingRes, adRes, insightRes, alertRes] = await Promise.all([
         supabase.from('scans').select('*').eq('competitor_id', competitorId).order('created_at', { ascending: false }).limit(10),
         supabase.from('change_events').select('*').eq('competitor_id', competitorId).order('detected_at', { ascending: false }).limit(50),
         supabase.from('website_snapshots').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(20),
         supabase.from('seo_keywords').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(100),
         supabase.from('social_posts').select('*').eq('competitor_id', competitorId).order('posted_at', { ascending: false, nullsFirst: false }).limit(50),
+        supabase.from('social_profiles').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(20),
         supabase.from('pricing_items').select('*').eq('competitor_id', competitorId).order('captured_at', { ascending: false }).limit(100),
         supabase.from('ad_creatives').select('*').eq('competitor_id', competitorId).order('last_seen_at', { ascending: false }).limit(50),
         supabase.from('ai_insights').select('*').eq('competitor_id', competitorId).order('created_at', { ascending: false }).limit(20),
@@ -106,6 +111,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
       setWebsiteSnapshots((webRes.data ?? []) as WebsiteSnapshot[]);
       setSeoKeywords((seoRes.data ?? []) as SeoKeyword[]);
       setSocialPosts((socialRes.data ?? []) as SocialPost[]);
+      setSocialProfiles((socialProfileRes.data ?? []) as SocialProfile[]);
       setPricingItems((pricingRes.data ?? []) as PricingItem[]);
       setAdCreatives((adRes.data ?? []).map(a => ({
         id: a.id,
@@ -143,6 +149,7 @@ export function useCompetitorDetail(competitorId: string | undefined): Competito
     websiteSnapshots,
     seoKeywords,
     socialPosts,
+    socialProfiles,
     pricingItems,
     advertisements,
     insights,

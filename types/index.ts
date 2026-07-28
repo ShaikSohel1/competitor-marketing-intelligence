@@ -31,6 +31,7 @@ export interface CompanyProfile {
   social_links: Record<string, string> | null;
   brand_keywords: string[] | null;
   brand_color?: string | null;
+  scraped_data?: Record<string, any> | null;
   created_at?: string;
   updated_at?: string;
 }

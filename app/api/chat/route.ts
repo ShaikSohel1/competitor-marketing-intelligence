@@ -3,34 +3,35 @@ import { supabase } from '@/lib/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { getUserId } from '@/lib/workspace';
 
-async function geminiGenerate(prompt: string): Promise<string | null> {
-  const key = process.env.NEXT_GEMINI_API_KEY;
+async function aiGenerate(prompt: string): Promise<string | null> {
+  const key = process.env.OPENROUTER_API_KEY;
   if (!key) {
-    console.info('[AI Service] chat Gemini skipped, NEXT_GEMINI_API_KEY not configured');
+    console.info('[AI Service] chat AI skipped, OPENROUTER_API_KEY not configured');
     return null;
   }
   try {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.7, maxOutputTokens: 800 },
-        }),
+    const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json"
       },
-    );
+      body: JSON.stringify({
+        model: "meta-llama/llama-3.3-70b-instruct",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+      })
+    });
     if (!res.ok) {
-      const errText = await res.text();
-      console.error('[AI Service] chat geminiGenerate response error', { status: res.status, text: errText });
+      console.error(`[AI Service] chat OpenRouter failed: ${res.status}`);
       return null;
     }
     const data = await res.json();
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    const text = data.choices[0]?.message?.content;
     return typeof text === "string" && text.trim() ? text.trim() : null;
   } catch (err) {
-    console.error('[AI Service] chat geminiGenerate failed', err);
+    console.error('[AI Service] chat aiGenerate failed', err);
     return null;
   }
 }
@@ -106,7 +107,7 @@ Instructions:
 Question:
 ${question}`;
 
-    let answer = await geminiGenerate(prompt);
+    let answer = await aiGenerate(prompt);
     if (!answer) {
       answer = `Based on competitor intelligence for ${ourCompany.company_name}, we are monitoring ${competitorsData?.length || 0} competitors in your workspace. You can compare pricing, SEO rankings, and social engagement across your portfolio.`;
     }

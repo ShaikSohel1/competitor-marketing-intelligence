@@ -217,19 +217,21 @@ export default function CompetitorDetailPage() {
   };
 
   const ts = threatStyle(c.threat_level as ThreatLevel);
-  const overviewComp = compareOverview(ourComp, c);
+  const overviewComp = compareOverview(ourComp, c, detail.seoKeywords, detail.pricingItems, detail.socialProfiles, detail.advertisements, detail.websiteSnapshots);
   const seoComp = compareSeo(ourComp, c, detail.seoKeywords);
   const pricingComp = comparePricing(ourComp, c, detail.pricingItems);
-  const socialComp = compareSocial(ourComp, c);
-  const webComp = compareWebsite(ourComp, c);
+  const socialComp = compareSocial(ourComp, c, detail.socialProfiles);
+  const webComp = compareWebsite(ourComp, c, detail.websiteSnapshots);
   const techComp = compareTechnology(ourComp, c);
-  const timelineComp = compareTimeline(ourComp, c, detail.events);
-  const execAnalysis = getExecutiveAnalysis(ourComp, c);
+  const timelineComp = compareTimeline(ourComp, c, detail.events, detail.scans);
+  const execAnalysis = getExecutiveAnalysis(ourComp, c, detail.insights, detail.seoKeywords, detail.pricingItems, detail.socialProfiles, detail.advertisements);
   const swotAnalysis = {
-    strengths: ['Real data pipeline pending'],
-    weaknesses: ['Real data pipeline pending'],
-    opportunities: ['Real data pipeline pending'],
-    threats: ['Real data pipeline pending']
+    strengths: execAnalysis.highlights.length > 0 ? execAnalysis.highlights : ['Run a scan to generate data'],
+    weaknesses: ['Self-scan data pending'],
+    opportunities: execAnalysis.priorityActions.length > 0 ? execAnalysis.priorityActions : ['Run a scan to identify opportunities'],
+    threats: detail.seoKeywords.length > 0
+      ? [`${c.name} ranks for ${detail.seoKeywords.length} keywords in your space`]
+      : ['Run a scan to identify threats'],
   };
 
   return (

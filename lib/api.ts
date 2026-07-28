@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { getUserCompetitorIds, getUserId } from './workspace';
+import { fetchPageSpeedMetrics } from './pagespeed';
 import type {
   Competitor,
   CompetitorWithStats,
@@ -264,6 +265,89 @@ export async function triggerDigest() {
   return data;
 }
 
+/**
+ * Scrape our own company's website using the same Firecrawl + Groq pipeline
+ * and store the extracted intelligence in company_profiles.scraped_data
+ */
+export async function scanOurCompany(): Promise<{ summary: string }> {
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes?.user?.id;
+  if (!userId) throw new Error('Not authenticated');
+
+  // 1. Fetch our company profile
+  const { data: profile, error: profileErr } = await supabase
+    .from('company_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (profileErr || !profile) {
+    throw new Error('Company profile not found. Please set up your company profile first.');
+  }
+
+  if (!profile.website) {
+    throw new Error('Company website URL is not set in your profile.');
+  }
+
+  // 2. Call the extract pipeline and PageSpeed Insights concurrently
+  let extractedData: any = null;
+  let pageSpeedData: any = null;
+
+  try {
+    const [extractRes, psData] = await Promise.all([
+      fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: profile.website, competitorName: profile.company_name }),
+      }),
+      fetchPageSpeedMetrics(profile.website)
+    ]);
+
+    if (extractRes.ok) {
+      const crawlData = await extractRes.json();
+      extractedData = crawlData.extracted_data;
+    } else {
+      const errText = await extractRes.text();
+      console.error('[scanOurCompany] Extract API failed:', errText);
+      throw new Error('Failed to scrape company website');
+    }
+    
+    pageSpeedData = psData;
+  } catch (err) {
+    console.error('[scanOurCompany] Extract/PageSpeed API call failed:', err);
+    throw err;
+  }
+
+  if (!extractedData) {
+    throw new Error('No data extracted from company website');
+  }
+
+  // Attach pagespeed data
+  if (pageSpeedData) {
+    extractedData.pagespeed = pageSpeedData;
+  }
+
+  // 3. Save the extracted data to company_profiles.scraped_data
+  const { error: updateErr } = await supabase
+    .from('company_profiles')
+    .update({
+      scraped_data: extractedData,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId);
+
+  if (updateErr) {
+    console.error('[scanOurCompany] Failed to save scraped data:', updateErr);
+    throw new Error('Failed to save scraped intelligence data');
+  }
+
+  const summary = extractedData.strategic_insight
+    ? `Scanned ${profile.company_name} successfully. ${extractedData.strategic_insight}`
+    : `Scanned ${profile.company_name} successfully. Intelligence data captured.`;
+
+  return { summary };
+}
+
 export async function scanCompetitor(competitorId: string): Promise<{ scanId: string; summary: string }> {
   const { data: userRes } = await supabase.auth.getUser();
   const userId = userRes?.user?.id;
@@ -288,139 +372,268 @@ export async function scanCompetitor(competitorId: string): Promise<{ scanId: st
     .from('scans')
     .insert({
       competitor_id: competitorId,
-      user_id: userId || '',
-      status: 'completed',
+      status: 'running',
       scan_type: 'full',
-      changes_detected: 5,
-      ai_summary: `Completed full intelligence scan for ${competitor.name}. Captured website, SEO, social, pricing, ads, and AI insights.`,
+      changes_detected: 0,
+      ai_summary: `Scanning ${competitor.name}...`,
       started_at: now,
-      completed_at: now,
     })
     .select()
     .single();
 
   const scanId = scan?.id || competitorId;
 
-  // 3. Hit the real extract API to generate website snapshot and AI extracted data
+  // 3. Call the extract pipeline and PageSpeed Insights concurrently
   let html = '';
   let screenshot = '';
   let extractedData: any = null;
-  
+  let pageSpeedData: any = null;
+
   try {
-    const res = await fetch('/api/extract', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url: competitor.website, competitorName: competitor.name }),
-    });
-    if (res.ok) {
-      const crawlData = await res.json();
-      html = crawlData.html;
-      screenshot = crawlData.screenshot_url;
+    const [extractRes, psData] = await Promise.all([
+      fetch('/api/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: competitor.website, competitorName: competitor.name }),
+      }),
+      fetchPageSpeedMetrics(competitor.website)
+    ]);
+
+    if (extractRes.ok) {
+      const crawlData = await extractRes.json();
+      html = crawlData.html || '';
+      screenshot = crawlData.screenshot_url || '';
       extractedData = crawlData.extracted_data;
     } else {
-      console.error("Extract API failed:", await res.text());
+      const errText = await extractRes.text();
+      console.error('[scanCompetitor] Extract API failed:', errText);
     }
+
+    pageSpeedData = psData;
   } catch (err) {
-    console.error("Failed to extract real data:", err);
+    console.error('[scanCompetitor] Extract/PageSpeed API call failed:', err);
   }
 
-  // 4. Batch delete old records to prevent duplication
+  // 4. Delete old records for a clean re-scan
   await Promise.allSettled([
     supabase.from('website_snapshots').delete().eq('competitor_id', competitorId),
     supabase.from('seo_keywords').delete().eq('competitor_id', competitorId),
     supabase.from('pricing_items').delete().eq('competitor_id', competitorId),
     supabase.from('social_profiles').delete().eq('competitor_id', competitorId),
     supabase.from('ad_creatives').delete().eq('competitor_id', competitorId),
+    supabase.from('monitored_urls').delete().eq('competitor_id', competitorId),
+    supabase.from('ai_insights').delete().eq('competitor_id', competitorId),
   ]);
 
-  // 5. Insert new records
+  // 5. Insert extracted data — column names match schema exactly
   const inserts: Promise<any>[] = [];
+  let totalChanges = 0;
 
-  if (html || screenshot) {
-    inserts.push(
-      supabase.from('website_snapshots').insert({
+  // 5a. Website snapshot (schema: competitor_id, url, screenshot_url, title, meta_description, word_count, ...)
+  const ws = extractedData?.website_snapshot;
+  inserts.push(
+    supabase.from('website_snapshots').insert({
+      competitor_id: competitorId,
+      scan_id: scanId,
+      url: competitor.website,
+      title: ws?.title || null,
+      meta_description: ws?.meta_description || null,
+      word_count: ws?.word_count || 0,
+      screenshot_url: screenshot || null,
+      metadata: pageSpeedData ? { pagespeed: pageSpeedData } : null,
+      captured_at: now,
+    }) as any
+  );
+
+  // 5b. SEO Keywords (schema: competitor_id, keyword, rank, search_volume, difficulty)
+  if (extractedData?.seo_keywords?.length > 0) {
+    const kwRows = extractedData.seo_keywords
+      .filter((k: any) => k.keyword && typeof k.keyword === 'string')
+      .map((k: any) => ({
         competitor_id: competitorId,
-        user_id: userId || '',
-        scan_id: scanId,
+        keyword: k.keyword.substring(0, 200),
+        rank: typeof k.rank === 'number' ? k.rank : null,
+        search_volume: typeof k.search_volume === 'number' ? k.search_volume : null,
+        difficulty: typeof k.difficulty === 'number' ? Math.min(Math.max(k.difficulty, 0), 100) : null,
         captured_at: now,
-        html_content: html || '',
-        screenshot_url: screenshot || null
+      }));
+    if (kwRows.length > 0) {
+      inserts.push(supabase.from('seo_keywords').insert(kwRows) as any);
+      totalChanges += kwRows.length;
+    }
+  }
+
+  // 5c. Pricing Items (schema: competitor_id, product_name, price, currency, tier)
+  if (extractedData?.pricing_items?.length > 0) {
+    const priceRows = extractedData.pricing_items
+      .filter((p: any) => p.product_name)
+      .map((p: any) => ({
+        competitor_id: competitorId,
+        product_name: p.product_name,
+        price: typeof p.price === 'number' ? p.price : 0,
+        currency: (p.currency || 'USD').substring(0, 3).toUpperCase(),
+        tier: p.tier || null,
+        captured_at: now,
+      }));
+    if (priceRows.length > 0) {
+      inserts.push(supabase.from('pricing_items').insert(priceRows) as any);
+      totalChanges += priceRows.length;
+    }
+  }
+
+  // 5d. Social Profiles (schema: competitor_id, platform, handle (NOT NULL), followers)
+  const VALID_PLATFORMS = ['youtube', 'linkedin', 'twitter', 'instagram', 'facebook'];
+  if (extractedData?.social_profiles?.length > 0) {
+    const socialRows = extractedData.social_profiles
+      .filter((s: any) => s.handle || s.profile_url)
+      .map((s: any) => {
+        const platform = (s.platform || 'unknown').toLowerCase();
+        return {
+          competitor_id: competitorId,
+          platform: VALID_PLATFORMS.includes(platform) ? platform : 'twitter',
+          handle: s.handle || s.profile_url || competitor.name.toLowerCase().replace(/\s+/g, ''),
+          name: competitor.name,
+          followers: typeof s.followers === 'number' ? s.followers : null,
+          data_source: 'scraping',
+          captured_at: now,
+        };
+      });
+    if (socialRows.length > 0) {
+      inserts.push(supabase.from('social_profiles').insert(socialRows) as any);
+      totalChanges += socialRows.length;
+    }
+  }
+
+  // 5e. Ad Creatives (schema: competitor_id, platform, headline, body_text, format — CHECK: image|video|carousel|text|unknown)
+  const VALID_AD_FORMATS = ['image', 'video', 'carousel', 'text', 'unknown'];
+  if (extractedData?.ad_creatives?.length > 0) {
+    const adRows = extractedData.ad_creatives
+      .filter((a: any) => a.headline)
+      .map((a: any) => {
+        const rawFormat = (a.format || 'unknown').toLowerCase();
+        return {
+          competitor_id: competitorId,
+          platform: a.platform || 'Google Ads',
+          headline: a.headline,
+          body_text: a.body_text || null,
+          format: VALID_AD_FORMATS.includes(rawFormat) ? rawFormat : 'unknown',
+          landing_url: a.landing_url || competitor.website,
+          status: 'active',
+          first_seen_at: now,
+          last_seen_at: now,
+        };
+      });
+    if (adRows.length > 0) {
+      inserts.push(supabase.from('ad_creatives').insert(adRows) as any);
+      totalChanges += adRows.length;
+    }
+  }
+
+  // 5f. Monitored URLs — auto-discover pages we scraped
+  const VALID_PAGE_TYPES = ['homepage', 'pricing', 'blog', 'careers', 'product', 'features', 'about', 'docs', 'changelog', 'general', 'custom'];
+  const monitoredRows: any[] = [
+    {
+      competitor_id: competitorId,
+      url: competitor.website,
+      page_type: 'homepage',
+      label: 'Homepage',
+      is_auto_discovered: true,
+      last_checked_at: now,
+      enabled: true,
+    },
+  ];
+  if (extractedData?.discovered_pages?.length > 0) {
+    for (const page of extractedData.discovered_pages) {
+      if (page.url && page.url !== competitor.website) {
+        const pageType = VALID_PAGE_TYPES.includes(page.page_type) ? page.page_type : 'general';
+        monitoredRows.push({
+          competitor_id: competitorId,
+          url: page.url,
+          page_type: pageType,
+          label: pageType.charAt(0).toUpperCase() + pageType.slice(1),
+          is_auto_discovered: true,
+          last_checked_at: now,
+          enabled: true,
+        });
+      }
+    }
+  }
+  inserts.push(supabase.from('monitored_urls').insert(monitoredRows) as any);
+
+  // 5g. AI Insight — strategic summary
+  if (extractedData?.strategic_insight) {
+    inserts.push(
+      supabase.from('ai_insights').insert({
+        user_id: userId,
+        competitor_id: competitorId,
+        insight_type: 'summary',
+        title: `AI Intelligence Report: ${competitor.name}`,
+        content: extractedData.strategic_insight,
+        recommendations: [],
+        sentiment: 'neutral',
+        confidence: 0.85,
       }) as any
     );
   }
 
-  if (extractedData) {
-    if (extractedData.seo_keywords?.length > 0) {
-      const kwData = extractedData.seo_keywords.map((k: any) => ({
-        competitor_id: competitorId,
-        user_id: userId || '',
-        keyword: k.keyword || 'Unknown',
-        search_volume: k.volume || 1000,
-        difficulty: k.difficulty || 50,
-        rank: k.rank || 10,
-      }));
-      inserts.push(supabase.from('seo_keywords').insert(kwData) as any);
-    }
-    
-    if (extractedData.pricing_items?.length > 0) {
-      const pData = extractedData.pricing_items.map((p: any) => ({
-        competitor_id: competitorId,
-        user_id: userId || '',
-        product_name: p.productName || 'Standard',
-        tier: p.tier || 'Basic',
-        price: p.price || 0,
-        currency: p.currency || 'USD',
-        features: Array.isArray(p.features) ? p.features : [],
-        status: 'active',
-        captured_at: now,
-      }));
-      inserts.push(supabase.from('pricing_items').insert(pData) as any);
-    }
-    
-    if (extractedData.social_profiles?.length > 0) {
-      const sData = extractedData.social_profiles.map((s: any) => ({
-        competitor_id: competitorId,
-        user_id: userId || '',
-        platform: s.platform || 'Unknown',
-        profile_url: s.url || '',
-        followers: s.followers || 0,
-      }));
-      inserts.push(supabase.from('social_profiles').insert(sData) as any);
-    }
-    
-    if (extractedData.ad_creatives?.length > 0) {
-      const aData = extractedData.ad_creatives.map((a: any) => ({
-        competitor_id: competitorId,
-        user_id: userId || '',
-        platform: a.platform || 'Google Ads',
-        headline: a.headline || 'Ad',
-        ad_type: a.format || 'Search',
-        status: 'active',
-        first_seen_at: now,
-        last_seen_at: now,
-      }));
-      inserts.push(supabase.from('ad_creatives').insert(aData) as any);
-    }
-    
-    if (extractedData.company_details) {
-      const updateData: any = {};
-      if (extractedData.company_details.industry) updateData.industry = extractedData.company_details.industry;
-      inserts.push(supabase.from('competitors').update(updateData).eq('id', competitorId) as any);
+  // 5h. Update competitor metadata from extraction
+  if (extractedData?.company_info) {
+    const ci = extractedData.company_info;
+    const updatePayload: any = {};
+    if (ci.industry) updatePayload.industry = ci.industry;
+    if (ci.description) updatePayload.description = ci.description;
+    if (Object.keys(updatePayload).length > 0) {
+      inserts.push(supabase.from('competitors').update(updatePayload).eq('id', competitorId) as any);
     }
   }
 
-  await Promise.allSettled(inserts);
+  // Execute all inserts in parallel
+  const results = await Promise.allSettled(inserts);
+  const insertLabels = [
+    'website_snapshots', 'seo_keywords', 'pricing_items', 'social_profiles',
+    'ad_creatives', 'monitored_urls', 'ai_insights', 'competitor_update',
+  ];
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const label = insertLabels[i] || `insert_${i}`;
+    if (r.status === 'rejected') {
+      console.error(`[scanCompetitor] INSERT FAILED [${label}]:`, r.reason);
+    } else if (r.value && typeof r.value === 'object' && 'error' in r.value && r.value.error) {
+      // Supabase returns { data, error } — Promise.allSettled marks it "fulfilled"
+      // but the insert itself failed at the DB level
+      console.error(`[scanCompetitor] DB ERROR [${label}]:`, (r.value as any).error?.message || (r.value as any).error);
+    }
+  }
 
-  // 6. Update competitor status & timestamp
+  // 6. Finalize scan record
+  const aiSummary = extractedData?.strategic_insight
+    ? `Completed full intelligence scan for ${competitor.name}. ${extractedData.strategic_insight}`
+    : `Completed scan for ${competitor.name}. Extracted website data and intelligence.`;
+
+  await supabase
+    .from('scans')
+    .update({
+      status: 'completed',
+      changes_detected: totalChanges,
+      ai_summary: aiSummary,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', scanId);
+
+  // 7. Update competitor last_scanned_at
   await supabase
     .from('competitors')
-    .update({ last_scanned_at: now, activity_score: 88, status: 'active' })
+    .update({
+      last_scanned_at: new Date().toISOString(),
+      activity_score: Math.min(100, 60 + totalChanges * 3),
+      status: 'active',
+    })
     .eq('id', competitorId)
     .eq('user_id', userId);
 
   return {
     scanId,
-    summary: `Scanned ${competitor.name} successfully. Real intelligence data is being tracked.`,
+    summary: aiSummary,
   };
 }
 
