@@ -43,36 +43,22 @@ async function getAccessToken(): Promise<string> {
 
 /* ----------------------------- My Company Profile ----------------------------- */
 
-export async function fetchCompanyProfile(): Promise<CompanyProfile> {
+export async function fetchCompanyProfile(): Promise<CompanyProfile | null> {
   const userId = await getUserId();
-  
-  const defaultProfile = {
-    id: '00000000-0000-0000-0000-000000000000',
-    user_id: userId || '',
-    company_name: 'Your Company',
-    website: '',
-    industry: 'Software',
-    target_audience: 'B2B',
-    brand_voice: 'Professional',
-  } as unknown as CompanyProfile;
+  if (!userId) return null;
 
-  if (!userId) return defaultProfile;
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
 
-  try {
-    const { data, error } = await supabase
-      .from('company_profiles')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (data) {
-      return data as CompanyProfile;
-    }
-  } catch (err) {
-    // Graceful fallback when table has not been created yet
+  if (error) {
+    console.error('[fetchCompanyProfile] DB error:', error.message);
+    return null;
   }
 
-  return defaultProfile;
+  return (data as CompanyProfile) ?? null;
 }
 
 export async function saveCompanyProfile(
@@ -81,39 +67,28 @@ export async function saveCompanyProfile(
   const { data: userRes } = await supabase.auth.getUser();
   const userId = userRes?.user?.id;
 
-  const profileData = {
-    ...input,
-    user_id: userId || '',
-    updated_at: new Date().toISOString(),
-  };
+  if (!userId) {
+    throw new Error('You must be logged in to save a company profile.');
+  }
+
+  // Strip any undefined values so Supabase doesn't reject them
+  const profileData: Record<string, unknown> = Object.fromEntries(
+    Object.entries({
+      ...input,
+      user_id: userId,
+      updated_at: new Date().toISOString(),
+    }).filter(([, v]) => v !== undefined)
+  );
 
   const { data, error } = await supabase
     .from('company_profiles')
     .upsert(profileData, { onConflict: 'user_id' })
     .select()
-    .maybeSingle();
+    .single();
 
   if (error) {
-    console.warn('Company profile database upsert fallback:', error);
-    return {
-      id: `company_${(userId || '').slice(0, 8)}`,
-      user_id: userId || '',
-      company_name: input.company_name,
-      website: input.website,
-      industry: input.industry ?? 'Eyewear & Vision Care',
-      description: input.description ?? '',
-      logo_url: input.logo_url ?? null,
-      headquarters: input.headquarters ?? 'Bengaluru, India',
-      employee_count: input.employee_count ?? 4500,
-      founded_year: input.founded_year ?? 2007,
-      company_size: input.company_size ?? '1000-5000',
-      annual_revenue: input.annual_revenue ?? '₹1,250 Cr',
-      primary_products: input.primary_products ?? ['Prescription Glasses', 'Computer Glasses'],
-      target_market: input.target_market ?? 'India Consumer Market',
-      social_links: input.social_links ?? {},
-      brand_keywords: input.brand_keywords ?? [input.company_name],
-      brand_color: input.brand_color ?? '#0F52BA',
-    } as CompanyProfile;
+    console.error('[saveCompanyProfile] DB error:', error);
+    throw new Error(`Failed to save company profile: ${error.message}`);
   }
 
   return data as CompanyProfile;

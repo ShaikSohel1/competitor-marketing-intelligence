@@ -93,21 +93,19 @@ export default function MyCompanyPage() {
     );
   }
 
-  const p = profile || {
-    company_name: 'Titan Eye+',
-    website: 'https://titaneyeplus.com',
-    industry: 'Eyewear & Vision Care',
-    description: 'India\'s leading omnichannel eyewear brand offering prescription glasses, computer lenses, and sunglasses.',
-    headquarters: 'Bengaluru, India',
-    employee_count: 4500,
-    annual_revenue: '₹1,250 Cr',
-    founded_year: 2007,
-    primary_products: ['Prescription Eyeglasses', 'Anti-Glare Computer Lenses', 'Contact Lenses', 'Design Sunglasses'],
-    brand_keywords: ['Titan Eye+', 'Prescription Glasses', 'Eyewear Online', 'Vision Care'],
-    brand_color: '#0F52BA',
-    scraped_data: null as any,
-  };
+  if (!profile) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] text-center">
+        <h2 className="text-xl font-bold mb-2">No Company Profile Found</h2>
+        <p className="text-muted-foreground mb-4">Please set up your company profile to view insights.</p>
+        <Button asChild>
+          <Link href="/app/onboarding">Set up Company Profile</Link>
+        </Button>
+      </div>
+    );
+  }
 
+  const p = profile;
   return (
     <div className="space-y-6">
       <PageHeader
@@ -171,15 +169,15 @@ export default function MyCompanyPage() {
             <div className="flex flex-wrap gap-4 text-xs text-muted-foreground sm:text-right">
               <div>
                 <span className="block text-muted-foreground">Headquarters</span>
-                <strong className="text-foreground text-sm">{p.headquarters || 'Bengaluru, India'}</strong>
+                <strong className="text-foreground text-sm">{p.headquarters || 'N/A'}</strong>
               </div>
               <div>
                 <span className="block text-muted-foreground">Team Size</span>
-                <strong className="text-foreground text-sm">{(p.employee_count || 4500).toLocaleString()} employees</strong>
+                <strong className="text-foreground text-sm">{p.employee_count ? `${p.employee_count.toLocaleString()} employees` : 'N/A'}</strong>
               </div>
               <div>
                 <span className="block text-muted-foreground">Est. Revenue</span>
-                <strong className="text-foreground text-sm text-success">{p.annual_revenue || '₹1,250 Cr'}</strong>
+                <strong className="text-foreground text-sm text-success">{p.annual_revenue || 'N/A'}</strong>
               </div>
             </div>
           </div>
@@ -210,7 +208,7 @@ export default function MyCompanyPage() {
                 <CardTitle className="text-base">About Company</CardTitle>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground leading-relaxed">
-                {p.description || 'India\'s leading eyewear omnichannel platform.'}
+                {p.description || 'No description provided.'}
               </CardContent>
             </Card>
 
@@ -220,9 +218,13 @@ export default function MyCompanyPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-1.5">
-                  {(p.primary_products || ['Eyeglasses', 'Sunglasses', 'Contact Lenses']).map((prod, i) => (
-                    <Badge key={i} variant="secondary">{prod}</Badge>
-                  ))}
+                  {p.primary_products?.length ? (
+                    p.primary_products.map((prod, i) => (
+                      <Badge key={i} variant="secondary">{prod}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-xs">N/A</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -233,9 +235,13 @@ export default function MyCompanyPage() {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-1.5">
-                  {(p.brand_keywords || ['Titan Eye+', 'Eyewear', 'Lenses']).map((kw, i) => (
-                    <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>
-                  ))}
+                  {p.brand_keywords?.length ? (
+                    p.brand_keywords.map((kw, i) => (
+                      <Badge key={i} variant="outline" className="text-xs">{kw}</Badge>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-xs">N/A</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -253,14 +259,14 @@ export default function MyCompanyPage() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm"><strong>Title:</strong> {p.scraped_data?.website_snapshots?.[0]?.title || `${p.company_name} - Official Online Store`}</p>
-              <p className="text-sm"><strong>Meta Description:</strong> {p.scraped_data?.website_snapshots?.[0]?.meta_description || 'Buy prescription glasses, computer lenses & sunglasses online.'}</p>
+              <p className="text-sm"><strong>Title:</strong> {p.scraped_data?.website_snapshots?.[0]?.title || 'N/A'}</p>
+              <p className="text-sm"><strong>Meta Description:</strong> {p.scraped_data?.website_snapshots?.[0]?.meta_description || 'N/A'}</p>
               <div className="grid gap-4 sm:grid-cols-3 pt-2">
                 <Badge variant={p.scraped_data?.pagespeed?.lighthouse_score ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.lighthouse_score ? "bg-success/15 text-success hover:bg-success/20" : ""}`}>
                   Performance Score: {p.scraped_data?.pagespeed?.lighthouse_score || 0}/100
                 </Badge>
                 <Badge variant={p.scraped_data?.pagespeed?.page_load_ms ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.page_load_ms ? "bg-success/15 text-success hover:bg-success/20" : ""}`}>
-                  Load Time: {p.scraped_data?.pagespeed?.page_load_ms || 0}ms
+                  Load Time: {p.scraped_data?.pagespeed?.page_load_ms ? `${p.scraped_data.pagespeed.page_load_ms}ms` : 'N/A'}
                 </Badge>
                 <Badge variant={p.scraped_data?.pagespeed?.seo_score ? "default" : "outline"} className={`p-3 justify-center text-sm ${p.scraped_data?.pagespeed?.seo_score ? "bg-info/15 text-info hover:bg-info/20" : ""}`}>
                   SEO Score: {p.scraped_data?.pagespeed?.seo_score || 0}/100
@@ -274,20 +280,11 @@ export default function MyCompanyPage() {
         <TabsContent value="seo" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Brand SEO Metrics</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-4 sm:grid-cols-3">
-                <Badge variant="secondary" className="p-4 flex flex-col items-center">
-                  <span className="text-xs text-muted-foreground">Avg SERP Rank</span>
-                  <span className="text-2xl font-bold text-info">#2</span>
-                </Badge>
-                <Badge variant="secondary" className="p-4 flex flex-col items-center">
-                  <span className="text-xs text-muted-foreground">Organic Keywords</span>
-                  <span className="text-2xl font-bold">560</span>
-                </Badge>
-                <Badge variant="secondary" className="p-4 flex flex-col items-center">
-                  <span className="text-xs text-muted-foreground">Backlinks</span>
-                  <span className="text-2xl font-bold text-success">1,800</span>
-                </Badge>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Search className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No SEO Data Available</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to fetch the latest SEO metrics and keyword rankings for your company.</p>
               </div>
             </CardContent>
           </Card>
@@ -297,21 +294,11 @@ export default function MyCompanyPage() {
         <TabsContent value="social" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Social Media Presence</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
-              <div className="p-4 border rounded-lg">
-                <span className="text-xs text-muted-foreground">Instagram Followers</span>
-                <p className="text-xl font-bold">350K</p>
-                <span className="text-xs text-success">+4.2% ER</span>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <span className="text-xs text-muted-foreground">LinkedIn Followers</span>
-                <p className="text-xl font-bold">85K</p>
-                <span className="text-xs text-info">+2.1% growth</span>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <span className="text-xs text-muted-foreground">YouTube Subscribers</span>
-                <p className="text-xl font-bold">120K</p>
-                <span className="text-xs text-muted-foreground">Weekly videos</span>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Share2 className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Social Data Available</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to analyze your social media performance across platforms.</p>
               </div>
             </CardContent>
           </Card>
@@ -321,21 +308,11 @@ export default function MyCompanyPage() {
         <TabsContent value="pricing" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Catalog & Pricing Tiers</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-3">
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-bold text-sm">Classic Frame</h4>
-                <p className="text-xl font-bold text-success mt-1">₹1,499</p>
-                <p className="text-xs text-muted-foreground mt-1">Includes scratch-resistant coating</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-bold text-sm">Premium Frame</h4>
-                <p className="text-xl font-bold text-success mt-1">₹2,999</p>
-                <p className="text-xs text-muted-foreground mt-1">Includes 1-yr frame warranty</p>
-              </div>
-              <div className="p-4 border rounded-lg">
-                <h4 className="font-bold text-sm">Gold Pass</h4>
-                <p className="text-xl font-bold text-success mt-1">₹799/yr</p>
-                <p className="text-xs text-muted-foreground mt-1">Free lens replacements for family</p>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <DollarSign className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Pricing Data Available</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Scan your website to automatically detect products and pricing tiers.</p>
               </div>
             </CardContent>
           </Card>
@@ -345,20 +322,11 @@ export default function MyCompanyPage() {
         <TabsContent value="advertising" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Active Campaigns</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-4 border rounded-lg flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-sm">Google Search Ads - Prescription Lenses</h4>
-                  <p className="text-xs text-muted-foreground">Est. Spend: ₹85,000/mo · Impressions: 120K</p>
-                </div>
-                <Badge variant="default" className="bg-success/15 text-success">Active</Badge>
-              </div>
-              <div className="p-4 border rounded-lg flex items-center justify-between">
-                <div>
-                  <h4 className="font-semibold text-sm">Meta Instagram Video Ads - Blue Light Protection</h4>
-                  <p className="text-xs text-muted-foreground">Est. Spend: ₹60,000/mo · Impressions: 250K</p>
-                </div>
-                <Badge variant="default" className="bg-success/15 text-success">Active</Badge>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Megaphone className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Advertising Data Available</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Discover active ad campaigns and marketing strategies by running a scan.</p>
               </div>
             </CardContent>
           </Card>
@@ -368,20 +336,11 @@ export default function MyCompanyPage() {
         <TabsContent value="products" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Featured Products Catalog</CardTitle></CardHeader>
-            <CardContent className="grid gap-3 sm:grid-cols-2">
-              <div className="p-3 border rounded-lg flex gap-3 items-center">
-                <div className="h-12 w-12 rounded bg-muted flex items-center justify-center font-bold text-xs text-primary">TITAN</div>
-                <div>
-                  <h5 className="font-semibold text-sm">Titan Clear Vision Lenses</h5>
-                  <p className="text-xs text-muted-foreground">Anti-reflective & water-repellent coating</p>
-                </div>
-              </div>
-              <div className="p-3 border rounded-lg flex gap-3 items-center">
-                <div className="h-12 w-12 rounded bg-muted flex items-center justify-center font-bold text-xs text-primary">TITAN</div>
-                <div>
-                  <h5 className="font-semibold text-sm">Titan Computer Glasses</h5>
-                  <p className="text-xs text-muted-foreground">Blue light protection for digital screens</p>
-                </div>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Layers className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Products Detected</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Your product catalog will appear here once extracted.</p>
               </div>
             </CardContent>
           </Card>
@@ -391,14 +350,11 @@ export default function MyCompanyPage() {
         <TabsContent value="insights" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Internal AI Brand Positioning</CardTitle></CardHeader>
-            <CardContent className="space-y-3">
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <h4 className="font-semibold text-sm text-accent flex items-center gap-1">
-                  <Sparkles className="h-4 w-4" /> Strong Brand Trust & High Engagement
-                </h4>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {p.company_name} maintains superior social engagement rates (4.2%) and higher customer brand trust ratings in India.
-                </p>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Sparkles className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No AI Insights Yet</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a comprehensive scan to generate AI-driven insights about your market position.</p>
               </div>
             </CardContent>
           </Card>
@@ -408,10 +364,12 @@ export default function MyCompanyPage() {
         <TabsContent value="performance" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Market Growth & Performance</CardTitle></CardHeader>
-            <CardContent className="grid gap-4 sm:grid-cols-3">
-              <div className="p-4 border rounded-lg"><span className="text-xs text-muted-foreground">Q3 Growth</span><p className="text-2xl font-bold text-success">+14.2%</p></div>
-              <div className="p-4 border rounded-lg"><span className="text-xs text-muted-foreground">Customer NPS</span><p className="text-2xl font-bold text-info">74</p></div>
-              <div className="p-4 border rounded-lg"><span className="text-xs text-muted-foreground">Brand Awareness</span><p className="text-2xl font-bold">88%</p></div>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Activity className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Performance Metrics</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">We need more data points over time to calculate growth and performance.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -420,10 +378,12 @@ export default function MyCompanyPage() {
         <TabsContent value="tech" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Detected Tech Stack</CardTitle></CardHeader>
-            <CardContent className="flex flex-wrap gap-2">
-              {['Next.js', 'React', 'Google Analytics 4', 'Meta Pixel', 'TailwindCSS', 'Cloudflare CDN'].map((t, i) => (
-                <Badge key={i} variant="secondary" className="px-3 py-1 text-xs">{t}</Badge>
-              ))}
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Cpu className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Tech Stack Detected</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Run a scan to analyze the underlying technologies powering your website.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -432,9 +392,12 @@ export default function MyCompanyPage() {
         <TabsContent value="timeline" className="mt-4 space-y-4">
           <Card>
             <CardHeader><CardTitle className="text-base">Company Milestones Log</CardTitle></CardHeader>
-            <CardContent className="space-y-3 text-xs text-muted-foreground">
-              <div className="flex gap-3 items-center"><Clock className="h-4 w-4 text-accent" /> <span>{p.company_name} updated primary product pricing structure.</span></div>
-              <div className="flex gap-3 items-center"><Clock className="h-4 w-4 text-accent" /> <span>Launched new Q3 performance advertising campaign across Google Search.</span></div>
+            <CardContent>
+              <div className="flex flex-col items-center justify-center p-8 text-center bg-muted/20 rounded-lg border border-dashed">
+                <Clock className="h-8 w-8 text-muted-foreground mb-3" />
+                <h3 className="font-semibold text-lg">No Timeline Events</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">Significant changes and milestones will be logged here automatically.</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
