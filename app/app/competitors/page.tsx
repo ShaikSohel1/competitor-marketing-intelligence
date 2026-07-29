@@ -16,7 +16,10 @@ import {
   AlertTriangle,
   Bell,
   ExternalLink,
+  Download,
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type { Competitor, ChangeEvent, Alert } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { fetchCompetitors, scanCompetitor, deleteCompetitor } from '@/lib/api';
@@ -55,6 +58,7 @@ export default function () {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [stats, setStats] = useState<Record<string, { changes: number; alerts: number }>>({});
   const [loading, setLoading] = useState(true);
+  const [downloadingPDF, setDownloadingPDF] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -132,6 +136,138 @@ export default function () {
     }
   }
 
+  const downloadPDF = async () => {
+    try {
+      setDownloadingPDF(true);
+      
+      const { data: { user } } = await supabase.auth.getUser();
+      const userEmail = user?.email || 'Unknown User';
+      const userName = user?.user_metadata?.full_name || 'Authorized User';
+
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.width;
+      
+      doc.setFontSize(22);
+      doc.setTextColor(41, 128, 185);
+      doc.text('Competitor Intelligence Report', pageWidth / 2, 22, { align: 'center' });
+      
+      doc.setFontSize(11);
+      doc.setTextColor(100);
+      doc.text(`Generated on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}`, pageWidth / 2, 30, { align: 'center' });
+      doc.text(`Prepared by: ${userName} (${userEmail})`, pageWidth / 2, 36, { align: 'center' });
+      
+      // Fetch detailed data for all competitors
+      const compIds = competitors.map(c => c.id);
+      
+      const [monitoredRes, insightsRes] = await Promise.all([
+        supabase.from('monitored_urls').select('competitor_id, url, page_type').in('competitor_id', compIds),
+        supabase.from('ai_insights').select('competitor_id, title, content').in('competitor_id', compIds).eq('insight_type', 'summary')
+      ]);
+
+      const monitoredUrls = monitoredRes.data || [];
+      const insights = insightsRes.data || [];
+
+      // Add a summary table first
+      const summaryData = competitors.map(c => {
+        const s = stats[c.id] ?? { changes: 0, alerts: 0 };
+        const pagesCount = monitoredUrls.filter(u => u.competitor_id === c.id).length;
+        return [
+          c.name,
+          c.industry || 'N/A',
+          c.threat_level || 'N/A',
+          c.activity_score?.toString() || '0',
+          pagesCount.toString(),
+          s.changes.toString(),
+          s.alerts.toString()
+        ];
+      });
+
+      autoTable(doc, {
+        startY: 40,
+        head: [['Competitor', 'Industry', 'Threat', 'Activity', 'Pages Scraped', 'Changes', 'Alerts']],
+        body: summaryData,
+        theme: 'grid',
+        headStyles: { fillColor: [41, 128, 185] },
+        margin: { bottom: 20 }
+      });
+
+      // Detailed section for each competitor
+      for (let i = 0; i < competitors.length; i++) {
+        const c = competitors[i];
+        doc.addPage();
+        
+        doc.setFontSize(18);
+        doc.setTextColor(41, 128, 185);
+        doc.text(c.name, 14, 22);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text(`Website: ${c.website}`, 14, 28);
+        if (c.industry) doc.text(`Industry: ${c.industry}`, 14, 33);
+        if (c.description) {
+          const splitDesc = doc.splitTextToSize(c.description, pageWidth - 28);
+          doc.text(splitDesc, 14, 39);
+        }
+        
+        let currentY = c.description ? 39 + (doc.splitTextToSize(c.description, pageWidth - 28).length * 4) + 10 : 45;
+
+        // Scraped Pages
+        const compPages = monitoredUrls.filter(u => u.competitor_id === c.id);
+        
+        doc.setFontSize(14);
+        doc.setTextColor(0);
+        doc.text(`Scraped Pages from Firecrawl (${compPages.length})`, 14, currentY);
+        currentY += 8;
+        
+        if (compPages.length > 0) {
+          const pagesData = compPages.map(p => [p.page_type, p.url]);
+          autoTable(doc, {
+            startY: currentY,
+            head: [['Page Type', 'URL']],
+            body: pagesData,
+            theme: 'plain',
+            headStyles: { fillColor: [240, 240, 240], textColor: [0,0,0] },
+            styles: { fontSize: 9 }
+          });
+          currentY = (doc as any).lastAutoTable.finalY + 15;
+        } else {
+          doc.setFontSize(10);
+          doc.text("No pages scraped yet.", 14, currentY);
+          currentY += 15;
+        }
+
+        // AI Insight
+        const compInsight = insights.find(ins => ins.competitor_id === c.id);
+        if (compInsight && compInsight.content) {
+          if (currentY > doc.internal.pageSize.height - 40) {
+            doc.addPage();
+            currentY = 20;
+          }
+          
+          doc.setFontSize(14);
+          doc.setTextColor(0);
+          doc.text('AI Strategic Insight', 14, currentY);
+          currentY += 8;
+          
+          doc.setFontSize(10);
+          doc.setTextColor(80);
+          const splitText = doc.splitTextToSize(compInsight.content, pageWidth - 28);
+          doc.text(splitText, 14, currentY);
+        }
+      }
+
+      doc.save('competitor-intelligence-report.pdf');
+    } catch (err) {
+      toast({
+        title: 'Error generating PDF',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setDownloadingPDF(false);
+    }
+  };
+
   const filtered = competitors.filter((c) => {
     const q = search.toLowerCase();
     return !q || c.name.toLowerCase().includes(q) || (c.industry?.toLowerCase().includes(q) ?? false) || c.website.toLowerCase().includes(q);
@@ -167,7 +303,15 @@ export default function () {
       <PageHeader
         title="Competitors"
         description="Manage and monitor your tracked competitors."
-        actions={<AddCompetitorDialog onAdded={load} />}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={downloadPDF} disabled={competitors.length === 0 || downloadingPDF}>
+              {downloadingPDF ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+              {downloadingPDF ? 'Generating PDF...' : 'Download PDF'}
+            </Button>
+            <AddCompetitorDialog onAdded={load} />
+          </div>
+        }
       />
 
       <div className="relative max-w-sm">

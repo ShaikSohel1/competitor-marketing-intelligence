@@ -136,11 +136,33 @@ export async function POST(req: Request) {
       subpages.map((path) => tryScrapeSubpage(app, url, path))
     );
 
+    // Also attempt to scrape user-provided social links
+    const socialUrls = Object.values(socialLinks)
+      .filter((l) => typeof l === 'string' && l.startsWith('http')) as string[];
+    
+    const socialResults = await Promise.allSettled(
+      socialUrls.map(async (socialUrl) => {
+        try {
+          const res = await app.scrapeUrl(socialUrl, { formats: ["markdown"], timeout: 15000 });
+          return { markdown: res.markdown || "", url: socialUrl };
+        } catch {
+          return { markdown: "", url: socialUrl };
+        }
+      })
+    );
+
     let combinedMarkdown = `# HOMEPAGE\n${homepageMarkdown}\n\n`;
     for (let i = 0; i < subpages.length; i++) {
       const result = subpageResults[i];
       if (result.status === "fulfilled" && result.value.markdown.length > 200) {
         combinedMarkdown += `# ${subpages[i].toUpperCase().replace("/", "")} PAGE\n${result.value.markdown}\n\n`;
+      }
+    }
+
+    for (let i = 0; i < socialUrls.length; i++) {
+      const result = socialResults[i];
+      if (result.status === "fulfilled" && result.value.markdown.length > 50) {
+        combinedMarkdown += `# SOCIAL PROFILE (${socialUrls[i]})\n${result.value.markdown}\n\n`;
       }
     }
 

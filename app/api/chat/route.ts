@@ -84,11 +84,25 @@ export async function POST(request: Request) {
       })(),
     ]);
 
-    const ourCompany = ourCompanyData || {
+    let ourCompany = ourCompanyData || {
       company_name: 'Titan Eye+',
       website: 'titaneyeplus.com',
       industry: 'Eyewear & Vision Care',
     };
+
+    // Prevent huge context limit crashes by removing raw pagespeed data
+    if (ourCompany.scraped_data?.pagespeed) {
+      // Shallow clone to avoid mutating the original if it was cached, though it shouldn't be
+      ourCompany = JSON.parse(JSON.stringify(ourCompany));
+      
+      // Just keep a tiny summary of pagespeed
+      const p = ourCompany.scraped_data.pagespeed;
+      ourCompany.scraped_data.pagespeed = {
+        lighthouse_score: p.lighthouse_score,
+        seo_score: p.seo_score,
+        page_load_ms: p.page_load_ms
+      };
+    }
 
     const prompt = `You are a Senior Competitor Marketing Intelligence Analyst for ${ourCompany.company_name}.
 Your job is to compare Our Company (${ourCompany.company_name}) against competitors and answer questions with sharp, actionable comparative intelligence.
