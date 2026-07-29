@@ -250,6 +250,12 @@ export default function CompetitorDetailPage() {
       : ['Run a scan to identify threats'],
   };
 
+  const renderWinnerBadge = (w: 'our' | 'comp' | 'tie') => {
+    if (w === 'our') return <Badge variant="default" className="bg-success/15 text-success">{ourComp.company_name}</Badge>;
+    if (w === 'comp') return <Badge variant="secondary">{c.name}</Badge>;
+    return <Badge variant="outline">Tie</Badge>;
+  };
+
   return (
     <div className="space-y-6">
       <Link href="/app/competitors" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -455,27 +461,27 @@ export default function CompetitorDetailPage() {
                 <TableBody>
                   <TableRow>
                     <TableCell className="font-medium">Page Load Speed</TableCell>
-                    <TableCell className="font-bold text-success">{webComp.loadSpeedMs.our}ms</TableCell>
-                    <TableCell>{webComp.loadSpeedMs.comp}ms</TableCell>
-                    <TableCell className="text-right"><Badge variant="default" className="bg-success/15 text-success">{ourComp.company_name}</Badge></TableCell>
+                    <TableCell className={webComp.loadSpeedMs.winner === 'our' ? "font-bold text-success" : ""}>{webComp.loadSpeedMs.our}ms</TableCell>
+                    <TableCell className={webComp.loadSpeedMs.winner === 'comp' ? "font-bold text-info" : ""}>{webComp.loadSpeedMs.comp}ms</TableCell>
+                    <TableCell className="text-right">{renderWinnerBadge(webComp.loadSpeedMs.winner)}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">Lighthouse Performance</TableCell>
-                    <TableCell className="font-bold text-success">{webComp.performanceScore.our}/100</TableCell>
-                    <TableCell>{webComp.performanceScore.comp}/100</TableCell>
-                    <TableCell className="text-right"><Badge variant="default" className="bg-success/15 text-success">{ourComp.company_name}</Badge></TableCell>
+                    <TableCell className={webComp.performanceScore.winner === 'our' ? "font-bold text-success" : ""}>{webComp.performanceScore.our}/100</TableCell>
+                    <TableCell className={webComp.performanceScore.winner === 'comp' ? "font-bold text-info" : ""}>{webComp.performanceScore.comp}/100</TableCell>
+                    <TableCell className="text-right">{renderWinnerBadge(webComp.performanceScore.winner)}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">SEO Score</TableCell>
-                    <TableCell>{webComp.seoScore.our}/100</TableCell>
-                    <TableCell className="font-bold text-info">{webComp.seoScore.comp}/100</TableCell>
-                    <TableCell className="text-right"><Badge variant="secondary">{c.name}</Badge></TableCell>
+                    <TableCell className={webComp.seoScore.winner === 'our' ? "font-bold text-success" : ""}>{webComp.seoScore.our}/100</TableCell>
+                    <TableCell className={webComp.seoScore.winner === 'comp' ? "font-bold text-info" : ""}>{webComp.seoScore.comp}/100</TableCell>
+                    <TableCell className="text-right">{renderWinnerBadge(webComp.seoScore.winner)}</TableCell>
                   </TableRow>
                   <TableRow>
                     <TableCell className="font-medium">Core Web Vitals</TableCell>
-                    <TableCell className="font-semibold text-success">{webComp.coreWebVitals.our}</TableCell>
-                    <TableCell>{webComp.coreWebVitals.comp}</TableCell>
-                    <TableCell className="text-right"><Badge variant="default" className="bg-success/15 text-success">{ourComp.company_name}</Badge></TableCell>
+                    <TableCell className={webComp.coreWebVitals.winner === 'our' ? "font-bold text-success" : ""}>{webComp.coreWebVitals.our}</TableCell>
+                    <TableCell className={webComp.coreWebVitals.winner === 'comp' ? "font-bold text-info" : ""}>{webComp.coreWebVitals.comp}</TableCell>
+                    <TableCell className="text-right">{renderWinnerBadge(webComp.coreWebVitals.winner)}</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
