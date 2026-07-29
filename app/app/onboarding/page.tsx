@@ -169,7 +169,7 @@ export default function CompanyOnboardingPage() {
           </div>
           <CardTitle className="text-2xl font-bold">Set Up Your Company</CardTitle>
           <CardDescription>
-            CompeteIQ compares <strong>YOUR COMPANY</strong> against competitors. Complete your profile to get started.
+            Radar compares <strong>YOUR COMPANY</strong> against competitors. Complete your profile to get started.
           </CardDescription>
 
           {/* Step progress */}

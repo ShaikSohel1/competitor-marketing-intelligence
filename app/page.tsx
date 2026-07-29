@@ -120,7 +120,7 @@ export default function AuthPage() {
             <Radar className="h-6 w-6" />
           </div>
           <div>
-            <p className="text-lg font-bold leading-none">CompeteIQ</p>
+            <p className="text-lg font-bold leading-none">Radar</p>
             <p className="text-xs text-primary-foreground/70">Competitor Intelligence</p>
           </div>
         </div>
@@ -162,7 +162,7 @@ export default function AuthPage() {
               <Radar className="h-6 w-6" />
             </div>
             <div>
-              <p className="text-lg font-bold leading-none">CompeteIQ</p>
+              <p className="text-lg font-bold leading-none">Radar</p>
               <p className="text-xs text-muted-foreground">Competitor Intelligence</p>
             </div>
           </div>

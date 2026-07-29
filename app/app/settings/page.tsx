@@ -133,7 +133,7 @@ export default function () {
                   <Bot className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Groq API</p>
+                  <p className="text-sm font-medium">OpenRouter API</p>
                   <p className="text-xs text-muted-foreground">Configured server-side</p>
                 </div>
               </div>
